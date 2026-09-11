@@ -23,9 +23,9 @@ Proyek ini dikembangkan oleh **Kelompok 2 Kelas C** dengan pembagian tanggung ja
 
 | Peran | Penanggung Jawab | Fokus Utama | Lingkup Pekerjaan |
 | :--- | :--- | :--- | :--- |
-| **Programmer 1** | *Backend Core & Admin* | Autentikasi, Keamanan, & Akun User | Skema tabel `users`, registrasi & login, hashing password, otorisasi role (`admin` vs `pengguna`), middleware token/sesi, serta API CRUD User oleh Admin. |
-| **Programmer 2** | *Backend Project & Task* | Logika Bisnis Proyek & Tugas | Skema tabel `projects`, `project_members`, `tasks`, API CRUD Proyek & Anggota, API CRUD Tugas & Status, kalkulasi persentase progres, dan query filter deadline. |
-| **Programmer 3** | **Rio Setiawan Hastanu Putra** | *Frontend UI/UX & Integrasi* | Antarmuka web responsif, layout & proteksi halaman, form login/register, dashboard metrik, board/list tugas, modal tugas & anggota, UI admin, serta integrasi penuh ke backend. |
+| **Rafi Anandra Dharmawan 24060124130071** | *Backend Core & Admin* | Autentikasi, Keamanan, & Akun User | Skema tabel `users`, registrasi & login, hashing password, otorisasi role (`admin` vs `pengguna`), middleware token/sesi, serta API CRUD User oleh Admin. |
+| **Yuma Hazza Yuditama 24060124120035** | *Backend Project & Task* | Logika Bisnis Proyek & Tugas | Skema tabel `projects`, `project_members`, `tasks`, API CRUD Proyek & Anggota, API CRUD Tugas & Status, kalkulasi persentase progres, dan query filter deadline. |
+| **Rio Setiawan Hastanu Putra 24060124130068** | *Frontend UI/UX & Integrasi* | Antarmuka web responsif, layout & proteksi halaman, form login/register, dashboard metrik, board/list tugas, modal tugas & anggota, UI admin, serta integrasi penuh ke backend. |
 
 ### Matriks Tanggung Jawab & Integrasi
 
@@ -45,7 +45,6 @@ Proyek ini dikembangkan oleh **Kelompok 2 Kelas C** dengan pembagian tanggung ja
                       ┌───────────────────────────────────────┐
                       │             Programmer 3              │
                       │     (Frontend UI/UX & Integrasi)      │
-                      │          Rio Setiawan H. P.           │
                       │  - Responsive UI/UX (Desktop & Mobile)│
                       │  - Auth & Admin Route Protection      │
                       │  - Dashboard & Project Board UI       │
