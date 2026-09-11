@@ -117,7 +117,7 @@ Route::middleware('auth')->group(function () {
                 'members_count' => $p->members_count + 1,
             ]);
 
-        $projects = $ownedProjects->merge($memberProjects)->values();
+        $projects = $ownedProjects->toBase()->concat($memberProjects->toBase())->values();
 
         return inertia('dashboard', [
             'projects' => $projects,

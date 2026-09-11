@@ -22,19 +22,15 @@ export default function Login() {
 
     // Quick fill helper for review & testing
     const fillDemoUser = (role: 'admin' | 'user') => {
-        if (role === 'admin') {
-            setData({
-                email: 'admin@taskteam.test',
-                password: 'password123',
-                remember: true,
-            });
-        } else {
-            setData({
-                email: 'rio@taskteam.test',
-                password: 'password123',
-                remember: true,
-            });
-        }
+        const email = role === 'admin' ? 'admin@taskteam.test' : 'rio@taskteam.test';
+        const password = 'password123';
+
+        setData((prev) => ({
+            ...prev,
+            email,
+            password,
+            remember: true,
+        }));
     };
 
     return (
@@ -98,18 +94,23 @@ export default function Login() {
                     <button
                         type="button"
                         onClick={() => fillDemoUser('user')}
-                        className="rounded-lg border border-slate-200 bg-slate-50 py-1.5 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300"
+                        className="rounded-lg border border-slate-200 bg-slate-50 py-2 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 text-left"
                     >
-                        Isi User Rio
+                        <span className="block font-semibold">User (Rio)</span>
+                        <span className="block text-[10px] text-slate-500 font-mono mt-0.5 truncate">rio@taskteam.test</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => fillDemoUser('admin')}
-                        className="rounded-lg border border-purple-200 bg-purple-50 py-1.5 px-2 text-xs font-medium text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer dark:border-purple-900/40 dark:bg-purple-950/40 dark:text-purple-300"
+                        className="rounded-lg border border-purple-200 bg-purple-50 py-2 px-2 text-xs font-medium text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer dark:border-purple-900/40 dark:bg-purple-950/40 dark:text-purple-300 text-left"
                     >
-                        Isi Akun Admin
+                        <span className="block font-semibold">Admin</span>
+                        <span className="block text-[10px] text-purple-600 dark:text-purple-400 font-mono mt-0.5 truncate">admin@taskteam.test</span>
                     </button>
                 </div>
+                <p className="text-[11px] text-slate-400 text-center mt-2 font-mono">
+                    Password demo: <strong className="text-slate-600 dark:text-slate-300">password123</strong>
+                </p>
             </div>
 
             {/* Register Link */}
