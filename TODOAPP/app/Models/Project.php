@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Project extends Model
 {
-    use HasFactory;
+    public $timestamps = false;
 
     protected $fillable = [
         'name',
@@ -18,16 +17,19 @@ class Project extends Model
         'owner_id',
     ];
 
+    /** @return BelongsTo<User, $this> */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    /** @return BelongsToMany<User, $this> */
     public function members(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'project_user')->withTimestamps();
+        return $this->belongsToMany(User::class, 'project_members')->withPivot('id');
     }
 
+    /** @return HasMany<Task, $this> */
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
@@ -42,13 +44,14 @@ class Project extends Model
         return $this->owner_id === $user->id || $this->members()->whereKey($user->id)->exists();
     }
 
+    /** @return array{total: int, completed: int, pending: int, in_progress: int, progress: int} */
     public function progress(): array
     {
         $statuses = $this->tasks()->pluck('status')->all();
         $total = count($statuses);
-        $completed = count(array_filter($statuses, fn ($status) => $status === 'Selesai'));
-        $pending = count(array_filter($statuses, fn ($status) => $status === 'Belum dikerjakan'));
-        $inProgress = count(array_filter($statuses, fn ($status) => $status === 'Sedang dikerjakan'));
+        $completed = count(array_filter($statuses, fn ($status) => $status === 'done'));
+        $pending = count(array_filter($statuses, fn ($status) => $status === 'todo'));
+        $inProgress = count(array_filter($statuses, fn ($status) => $status === 'in_progress'));
 
         return [
             'total' => $total,

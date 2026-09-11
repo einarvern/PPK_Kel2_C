@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\Task;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
-    public function index(Project $project)
+    public function index(Project $project): JsonResponse
     {
         abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
@@ -19,15 +20,15 @@ class TaskController extends Controller
         ]);
     }
 
-    public function store(Request $request, Project $project)
+    public function store(Request $request, Project $project): JsonResponse
     {
         abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'priority' => ['required', 'in:Rendah,Sedang,Tinggi'],
-            'status' => ['required', 'in:Belum dikerjakan,Sedang dikerjakan,Selesai'],
+            'priority' => ['required', 'in:low,medium,high'],
+            'status' => ['required', 'in:todo,in_progress,done'],
             'deadline' => ['nullable', 'date'],
         ]);
 
@@ -45,15 +46,15 @@ class TaskController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Task $task)
+    public function update(Request $request, Task $task): JsonResponse
     {
         abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
         $validated = $request->validate([
             'title' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'priority' => ['sometimes', 'in:Rendah,Sedang,Tinggi'],
-            'status' => ['sometimes', 'in:Belum dikerjakan,Sedang dikerjakan,Selesai'],
+            'priority' => ['sometimes', 'in:low,medium,high'],
+            'status' => ['sometimes', 'in:todo,in_progress,done'],
             'deadline' => ['nullable', 'date'],
         ]);
 
@@ -65,7 +66,7 @@ class TaskController extends Controller
         ]);
     }
 
-    public function destroy(Task $task)
+    public function destroy(Task $task): JsonResponse
     {
         abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
@@ -77,12 +78,12 @@ class TaskController extends Controller
         ]);
     }
 
-    public function updateStatus(Request $request, Task $task)
+    public function updateStatus(Request $request, Task $task): JsonResponse
     {
         abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
         $validated = $request->validate([
-            'status' => ['required', 'in:Belum dikerjakan,Sedang dikerjakan,Selesai'],
+            'status' => ['required', 'in:todo,in_progress,done'],
         ]);
 
         $task->update(['status' => $validated['status']]);
