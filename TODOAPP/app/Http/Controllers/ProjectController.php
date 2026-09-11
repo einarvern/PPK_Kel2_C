@@ -4,13 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 
 class ProjectController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
         $user = Auth::user();
 
@@ -25,7 +25,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function show(Project $project)
+    public function show(Project $project): JsonResponse
     {
         abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
@@ -35,7 +35,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -54,7 +54,7 @@ class ProjectController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Project $project)
+    public function update(Request $request, Project $project): JsonResponse
     {
         abort_unless($project->owner_id === Auth::id(), 403, 'Hanya pemilik proyek yang dapat mengubah proyek ini.');
 
@@ -71,7 +71,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function destroy(Project $project)
+    public function destroy(Project $project): JsonResponse
     {
         abort_unless($project->owner_id === Auth::id(), 403, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
 
@@ -83,7 +83,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function addMember(Request $request, Project $project)
+    public function addMember(Request $request, Project $project): JsonResponse
     {
         abort_unless($project->owner_id === Auth::id(), 403, 'Hanya pemilik proyek yang dapat menambah anggota.');
 
@@ -109,7 +109,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function removeMember(Project $project, User $user)
+    public function removeMember(Project $project, User $user): JsonResponse
     {
         abort_unless($project->owner_id === Auth::id(), 403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
         abort_unless($project->members()->whereKey($user->id)->exists() || $project->owner_id === $user->id, 404, 'Pengguna tidak terdaftar di proyek ini.');
@@ -129,7 +129,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function progress(Project $project)
+    public function progress(Project $project): JsonResponse
     {
         abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
