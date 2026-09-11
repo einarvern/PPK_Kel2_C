@@ -25,7 +25,7 @@ Proyek ini dikembangkan oleh **Kelompok 2 Kelas C** dengan pembagian tanggung ja
 | :--- | :--- | :--- | :--- |
 | **Rafi Anandra Dharmawan 24060124130071** | *Backend Core & Admin* | Autentikasi, Keamanan, & Akun User | Skema tabel `users`, registrasi & login, hashing password, otorisasi role (`admin` vs `pengguna`), middleware token/sesi, serta API CRUD User oleh Admin. |
 | **Yuma Hazza Yuditama 24060124120035** | *Backend Project & Task* | Logika Bisnis Proyek & Tugas | Skema tabel `projects`, `project_members`, `tasks`, API CRUD Proyek & Anggota, API CRUD Tugas & Status, kalkulasi persentase progres, dan query filter deadline. |
-| **Rio Setiawan Hastanu Putra 24060124130068** | *Frontend UI/UX & Integrasi* | Antarmuka Pengguna & Integrasi Sistem | Antarmuka web responsif, layout & proteksi halaman, form login/register, dashboard metrik, board/list tugas, modal tugas & anggota, UI admin, serta integrasi penuh ke backend. |
+| **Rio Setiawan Hastanu Putra 24060124130068** | *Frontend UI/UX & Integrasi* | Antarmuka web responsif, layout & proteksi halaman, form login/register, dashboard metrik, board/list tugas, modal tugas & anggota, UI admin, serta integrasi penuh ke backend. |
 
 ### Matriks Tanggung Jawab & Integrasi
 
@@ -98,63 +98,88 @@ Proyek ini dikembangkan oleh **Kelompok 2 Kelas C** dengan pembagian tanggung ja
 
 ---
 
-## 🗄️ 4. Skema Basis Data
+## 🗄️ 4. Skema Basis Data & Pemetaan Nilai (Database Schema)
 
-Sistem menggunakan 4 entitas utama yang saling berelasi:
+Sistem menggunakan 5 entitas utama pada basis data MySQL yang saling berelasi:
 
 ```mermaid
 erDiagram
     User ||--o{ Project : "owns"
     User ||--o{ ProjectMember : "participates_in"
+    User ||--o{ ApiToken : "has"
     Project ||--o{ ProjectMember : "has"
     Project ||--o{ Task : "contains"
 
     User {
         bigint id PK
-        string nama
+        string name
         string email UK
         string password
-        string role "admin | user"
+        string role "user | admin"
         datetime created_at
         datetime updated_at
     }
 
     Project {
         bigint id PK
-        string nama
-        text deskripsi
+        string name
+        text description "nullable"
         bigint owner_id FK
-        datetime tanggal_dibuat
-        datetime updated_at
     }
 
     ProjectMember {
         bigint id PK
         bigint project_id FK
         bigint user_id FK
-        datetime tanggal_bergabung
     }
 
     Task {
         bigint id PK
         bigint project_id FK
-        string judul
-        text deskripsi
-        string prioritas "Rendah | Sedang | Tinggi"
-        string status "Belum dikerjakan | Sedang dikerjakan | Selesai"
+        string title
+        text description "nullable"
+        string priority "low | medium | high"
+        string status "todo | in_progress | done"
         date deadline "nullable"
+    }
+
+    ApiToken {
+        bigint id PK
+        bigint user_id FK
+        string name
+        string token_hash UK
+        datetime last_used_at "nullable"
         datetime created_at
         datetime updated_at
     }
 ```
 
+> **Catatan Teknis Model Basis Data:**
+> - Entitas `Project`, `ProjectMember`, dan `Task` menggunakan `public $timestamps = false;` sesuai dengan rancangan tabel migrasi.
+> - Tabel `users` dan `api_tokens` menggunakan timestamps standar Laravel (`created_at`, `updated_at`).
+> - Tabel pivot `project_members` memiliki indeks unik komposit pada `(project_id, user_id)` untuk menjamin integritas keanggotaan.
+
+### 4.1. Pemetaan Nilai Enum (Database vs Label Tampilan UI)
+Untuk menjaga konsistensi antara kode backend dan tampilan antarmuka pengguna:
+
+| Kategori | Nilai Basis Data / API (`code`) | Label Tampilan Antarmuka (`label UI`) | Warna Badge UI |
+| :--- | :--- | :--- | :--- |
+| **Status Tugas** | `todo` | **Belum dikerjakan** | Abu-abu (*Slate*) |
+| | `in_progress` | **Sedang dikerjakan** | Biru (*Indigo/Blue*) |
+| | `done` | **Selesai** | Hijau (*Emerald/Green*) |
+| **Prioritas Tugas** | `low` | **Rendah** | Abu-abu (*Slate*) |
+| | `medium` | **Sedang** | Kuning / Oranye (*Amber*) |
+| | `high` | **Tinggi** | Merah (*Rose*) |
+| **Peran Pengguna** | `user` | **Pengguna Biasa** | Biru (*Sky*) |
+| | `admin` | **Administrator** | Ungu (*Purple*) |
+
 ---
 
-## 🔌 5. Standardisasi Kontrak Rute & API
+## 🔌 5. Standardisasi Kontrak Rute: Web & REST API
 
-Untuk memudahkan integrasi antara **Programmer 1 & 2 (Backend)** dengan **Programmer 3 (Frontend)**, rute disepakati sebagai berikut:
+Proyek ini mengadopsi arsitektur dual-layer untuk memenuhi kebutuhan antarmuka web interaktif sekaligus pengujian backend API independen:
 
-### Format Standar Respon JSON
+### 5.1. Format Standar Respon JSON (API)
 ```json
 // Respon Berhasil
 {
@@ -168,32 +193,57 @@ Untuk memudahkan integrasi antara **Programmer 1 & 2 (Backend)** dengan **Progra
   "success": false,
   "message": "Validasi gagal atau terjadi kesalahan",
   "errors": {
-    "field": ["Pesan error"]
+    "field": ["Pesan error validasi"]
   }
 }
 ```
 
-### Rincian Endpoint Rute
+### 5.2. Layer 1: Rute Aplikasi Web (Inertia.js React — Session Auth)
+Dikelola di `routes/web.php` untuk interaksi antarmuka pengguna berbasis React:
 
-| Modul | Method | Endpoint | Akses | Penanggung Jawab |
-| :--- | :---: | :--- | :---: | :--- |
-| **Auth** | `POST` | `/register` | Public | Programmer 1 |
-| **Auth** | `POST` | `/login` | Public | Programmer 1 |
-| **Auth** | `POST` | `/logout` | Auth | Programmer 1 |
-| **Admin** | `GET` | `/admin/users` | Admin | Programmer 1 |
-| **Admin** | `POST` | `/admin/users` | Admin | Programmer 1 |
-| **Admin** | `DELETE` | `/admin/users/{id}` | Admin | Programmer 1 |
-| **Dashboard**| `GET` | `/dashboard` | Auth | Programmer 2 & 3 |
-| **Project** | `GET` | `/projects/{id}` | Member/Owner | Programmer 2 |
-| **Project** | `POST` | `/projects` | Auth | Programmer 2 |
-| **Project** | `PUT` | `/projects/{id}` | Owner | Programmer 2 |
-| **Project** | `DELETE` | `/projects/{id}` | Owner | Programmer 2 |
-| **Member** | `POST` | `/projects/{id}/members` | Owner | Programmer 2 |
-| **Member** | `DELETE` | `/projects/{id}/members/{userId}` | Owner | Programmer 2 |
-| **Task** | `POST` | `/projects/{id}/tasks` | Member/Owner | Programmer 2 |
-| **Task** | `PUT` | `/tasks/{id}` | Member/Owner | Programmer 2 |
-| **Task** | `PATCH`| `/tasks/{id}/status` | Member/Owner | Programmer 2 |
-| **Task** | `DELETE`| `/tasks/{id}` | Member/Owner | Programmer 2 |
+| Modul | Method | Endpoint Web | Keterangan & Fungsi | Akses |
+| :--- | :---: | :--- | :--- | :---: |
+| **Auth** | `GET/POST` | `/login` | Tampilan form & proses login session | Publik |
+| **Auth** | `GET/POST` | `/register` | Tampilan form & proses pendaftaran akun | Publik |
+| **Auth** | `POST` | `/logout` | Keluar dari sesi aplikasi web | Auth |
+| **Dashboard** | `GET` | `/dashboard` | Menampilkan proyek milik sendiri & proyek tim | Auth |
+| **Project** | `POST` | `/projects` | Membuat proyek baru | Auth |
+| **Project** | `GET` | `/projects/{id}` | Halaman detail proyek, kanban board, & anggota | Member/Owner |
+| **Task** | `POST` | `/projects/{id}/tasks` | Menambahkan tugas baru ke dalam proyek | Member/Owner |
+| **Task** | `PATCH` | `/tasks/{id}` | Memperbarui status tugas (Quick status toggle) | Member/Owner |
+| **Task** | `PUT` | `/tasks/{id}` | Mengedit detail judul, deskripsi, prioritas, deadline | Member/Owner |
+| **Task** | `DELETE` | `/tasks/{id}` | Menghapus item tugas dari proyek | Member/Owner |
+| **Member** | `POST` | `/projects/{id}/members` | Menambahkan anggota tim via email pengguna | Owner |
+| **Member** | `DELETE` | `/projects/{id}/members/{userId}` | Mengeluarkan anggota dari proyek | Owner |
+| **Admin** | `GET` | `/admin/users` | Halaman panel admin & daftar pengguna | Admin |
+| **Admin** | `POST` | `/admin/users` | Admin mendaftarkan akun pengguna baru | Admin |
+| **Admin** | `DELETE` | `/admin/users/{user}` | Admin menghapus akun pengguna dari sistem | Admin |
+
+### 5.3. Layer 2: Rute RESTful API (JSON — Bearer Token Auth)
+Dikelola di `routes/api.php` untuk pengujian independen via Postman/cURL menggunakan header `Authorization: Bearer <token>`:
+
+| Modul | Method | Endpoint REST API | Keterangan & Fungsi | Akses |
+| :--- | :---: | :--- | :--- | :---: |
+| **Auth** | `POST` | `/api/register` | Registrasi & menghasilkan token Bearer | Publik |
+| **Auth** | `POST` | `/api/login` | Login kredensial & menghasilkan token Bearer | Publik |
+| **Auth** | `GET` | `/api/me` | Mendapatkan profil pengguna yang sedang login | Bearer Token |
+| **Auth** | `POST` | `/api/logout` | Revoke / menghapus token aktif | Bearer Token |
+| **Project** | `GET` | `/api/projects` | Menampilkan seluruh proyek milik & diikuti | Bearer Token |
+| **Project** | `POST` | `/api/projects` | Membuat proyek baru | Bearer Token |
+| **Project** | `GET` | `/api/projects/{project}` | Mendapatkan detail proyek lengkap dengan relasi | Member/Owner |
+| **Project** | `PUT` | `/api/projects/{project}` | Memperbarui nama dan deskripsi proyek | Owner |
+| **Project** | `DELETE` | `/api/projects/{project}` | Menghapus proyek beserta seluruh tugasnya | Owner |
+| **Progress** | `GET` | `/api/projects/{project}/progress` | **Kalkulasi progres (total, selesai, %, overdue)** | Member/Owner |
+| **Member** | `POST` | `/api/projects/{project}/members` | Menambahkan anggota proyek | Owner |
+| **Member** | `DELETE` | `/api/projects/{project}/members/{user}` | Menghapus anggota proyek | Owner |
+| **Task** | `GET` | `/api/projects/{project}/tasks` | Mendapatkan daftar tugas terurut deadline | Member/Owner |
+| **Task** | `POST` | `/api/projects/{project}/tasks` | Menambahkan tugas baru | Member/Owner |
+| **Task** | `PUT` | `/api/tasks/{task}` | Memperbarui detail tugas | Member/Owner |
+| **Task** | `PATCH` | `/api/tasks/{task}/status` | Mengubah status penyelesaian tugas | Member/Owner |
+| **Task** | `DELETE` | `/api/tasks/{task}` | Menghapus tugas | Member/Owner |
+| **Admin** | `GET` | `/api/admin/users` | Mendapatkan seluruh akun pengguna terdaftar | Admin |
+| **Admin** | `POST` | `/api/admin/users` | Admin membuat akun pengguna secara manual | Admin |
+| **Admin** | `DELETE` | `/api/admin/users/{user}` | Admin menghapus akun pengguna | Admin |
 
 ---
 
@@ -249,7 +299,8 @@ php artisan key:generate
 
 #### 4. Konfigurasi Basis Data (Docker Compose atau MySQL Lokal)
 Jika menggunakan **Docker Compose** yang sudah disediakan:
-Sesuaikan port dan kredensial pada file `.env`, jalankan container database:
+Sesuaikan port dan kredensial pada file `.env`.
+Jalankan container database:
 ```bash
 docker compose up -d
 ```
