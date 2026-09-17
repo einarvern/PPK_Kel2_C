@@ -2,18 +2,29 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string|null $description
+ * @property int $owner_id
+ * @property int $tasks_count
+ * @property int $completed_tasks_count
+ * @property int $members_count
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read User $owner
+ * @property-read Collection<int, User> $members
+ * @property-read Collection<int, Task> $tasks
+ */
 class Project extends Model
 {
-    use HasFactory;
-
-    public $timestamps = false;
-
     protected $fillable = [
         'name',
         'description',
@@ -29,7 +40,9 @@ class Project extends Model
     /** @return BelongsToMany<User, $this> */
     public function members(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'project_members')->withPivot('id');
+        return $this->belongsToMany(User::class, 'project_members')
+            ->withPivot('id')
+            ->withTimestamps();
     }
 
     /** @return HasMany<Task, $this> */

@@ -67,6 +67,19 @@ class AuthApiTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'new@example.com']);
     }
 
+    public function test_admin_can_delete_another_user_but_not_their_own_account(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $target = User::factory()->create();
+        $headers = ['Authorization' => 'Bearer '.$this->tokenFor($admin)];
+
+        $this->deleteJson('/api/admin/users/'.$target->id, [], $headers)->assertOk();
+        $this->assertDatabaseMissing('users', ['id' => $target->id]);
+
+        $this->deleteJson('/api/admin/users/'.$admin->id, [], $headers)->assertUnprocessable();
+        $this->assertDatabaseHas('users', ['id' => $admin->id]);
+    }
+
     private function tokenFor(User $user): string
     {
         $token = bin2hex(random_bytes(32));

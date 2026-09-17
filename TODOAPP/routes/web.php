@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ Route::middleware('guest')->group(function () {
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+
             return redirect()->intended(route('dashboard'));
         }
 
@@ -68,7 +70,6 @@ Route::post('/logout', function (Request $request) {
     return redirect()->route('login');
 })->name('logout');
 
-
 // --- PROTECTED APPLICATION ROUTES (AUTHENTICATED) ---
 Route::middleware('auth')->group(function () {
 
@@ -85,7 +86,7 @@ Route::middleware('auth')->group(function () {
                 'members',
             ])
             ->get()
-            ->map(fn ($p) => [
+            ->map(fn (Project $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
                 'description' => $p->description,
@@ -105,7 +106,7 @@ Route::middleware('auth')->group(function () {
                 'members',
             ])
             ->get()
-            ->map(fn ($p) => [
+            ->map(fn (Project $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
                 'description' => $p->description,
@@ -141,33 +142,34 @@ Route::middleware('auth')->group(function () {
     })->name('projects.store');
 
     // 3. Detail Proyek & Board Tugas
-    Route::get('/projects/{id}', function ($id) {
+    Route::get('/projects/{id}', function (int $id) {
         $user = Auth::user();
-        $project = Project::findOrFail($id);
+        $project = Project::with('owner:id,name,email,role')->findOrFail($id);
 
         $isOwner = $project->owner_id === $user->id;
         $isMember = $project->members()->where('users.id', $user->id)->exists();
 
-        if (! $isOwner && ! $isMember && $user->role !== 'admin') {
+        if (! $isOwner && ! $isMember) {
             abort(403, 'Anda tidak memiliki akses ke proyek ini.');
         }
 
         $tasks = $project->tasks()->get();
 
-        $members = $project->members()
-            ->select(['users.id', 'users.name', 'users.email', 'users.role'])
+        $members = ProjectMember::query()
+            ->where('project_id', $project->id)
+            ->with('user:id,name,email,role')
             ->get()
-            ->map(fn ($u) => [
-                'id' => $u->pivot->id ?? $u->id,
+            ->map(fn (ProjectMember $member) => [
+                'id' => $member->id,
                 'project_id' => $project->id,
-                'user_id' => $u->id,
+                'user_id' => $member->user_id,
                 'user' => [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'email' => $u->email,
-                    'role' => $u->role,
+                    'id' => $member->user->id,
+                    'name' => $member->user->name,
+                    'email' => $member->user->email,
+                    'role' => $member->user->role,
                 ],
-                'joined_at' => date('Y-m-d'),
+                'joined_at' => $member->created_at?->toDateString(),
             ]);
 
         return inertia('projects/show', [
@@ -176,7 +178,9 @@ Route::middleware('auth')->group(function () {
                 'name' => $project->name,
                 'description' => $project->description,
                 'owner_id' => $project->owner_id,
+                'owner' => $project->owner->only(['id', 'name', 'email', 'role']),
                 'is_owner' => $isOwner,
+                'created_at' => $project->created_at?->toDateString(),
             ],
             'tasks' => $tasks,
             'members' => $members,
@@ -184,8 +188,10 @@ Route::middleware('auth')->group(function () {
     })->name('projects.show');
 
     // 4. Tambah Tugas Baru dalam Proyek
-    Route::post('/projects/{id}/tasks', function (Request $request, $id) {
+    Route::post('/projects/{id}/tasks', function (Request $request, int $id) {
         $project = Project::findOrFail($id);
+
+        abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
@@ -195,14 +201,22 @@ Route::middleware('auth')->group(function () {
             'deadline' => ['nullable', 'date'],
         ]);
 
-        $project->tasks()->create($validated);
+        $task = $project->tasks()->create([
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'priority' => $validated['priority'],
+            'status' => $validated['status'],
+            'deadline' => $validated['deadline'] ?? null,
+        ]);
 
         return back()->with('success', 'Tugas berhasil ditambahkan ke proyek!');
     })->name('tasks.store');
 
     // 5. Update Status / Edit / Hapus Tugas
-    Route::patch('/tasks/{id}', function (Request $request, $id) {
-        $task = Task::findOrFail($id);
+    Route::patch('/tasks/{id}', function (Request $request, int $id) {
+        $task = Task::with('project')->findOrFail($id);
+        abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+
         $validated = $request->validate([
             'status' => ['required', 'in:todo,in_progress,done'],
         ]);
@@ -212,8 +226,10 @@ Route::middleware('auth')->group(function () {
         return back()->with('success', 'Status tugas berhasil diperbarui!');
     })->name('tasks.updateStatus');
 
-    Route::put('/tasks/{id}', function (Request $request, $id) {
-        $task = Task::findOrFail($id);
+    Route::put('/tasks/{id}', function (Request $request, int $id) {
+        $task = Task::with('project')->findOrFail($id);
+        abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -222,20 +238,27 @@ Route::middleware('auth')->group(function () {
             'deadline' => ['nullable', 'date'],
         ]);
 
-        $task->update($validated);
+        $task->update([
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'priority' => $validated['priority'],
+            'status' => $validated['status'],
+            'deadline' => $validated['deadline'] ?? null,
+        ]);
 
         return back()->with('success', 'Tugas berhasil diperbarui!');
     })->name('tasks.update');
 
-    Route::delete('/tasks/{id}', function ($id) {
-        $task = Task::findOrFail($id);
+    Route::delete('/tasks/{id}', function (int $id) {
+        $task = Task::with('project')->findOrFail($id);
+        abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
         $task->delete();
 
         return back()->with('success', 'Tugas berhasil dihapus!');
     })->name('tasks.destroy');
 
     // 6. Kelola Anggota Proyek (Invite & Remove Member)
-    Route::post('/projects/{id}/members', function (Request $request, $id) {
+    Route::post('/projects/{id}/members', function (Request $request, int $id) {
         $project = Project::findOrFail($id);
 
         if ($project->owner_id !== Auth::id()) {
@@ -263,14 +286,17 @@ Route::middleware('auth')->group(function () {
         return back()->with('success', "{$targetUser->name} berhasil ditambahkan ke proyek!");
     })->name('projects.members.store');
 
-    Route::delete('/projects/{id}/members/{userId}', function ($id, $userId) {
+    Route::delete('/projects/{id}/members/{userId}', function (int $id, int $userId) {
         $project = Project::findOrFail($id);
 
         if ($project->owner_id !== Auth::id()) {
             abort(403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
         }
 
-        $project->members()->detach($userId);
+        $member = User::findOrFail($userId);
+        abort_unless($project->members()->whereKey($member->id)->exists(), 404, 'Pengguna bukan anggota proyek ini.');
+
+        $project->members()->detach($member->id);
 
         return back()->with('success', 'Anggota berhasil dikeluarkan dari proyek.');
     })->name('projects.members.destroy');
