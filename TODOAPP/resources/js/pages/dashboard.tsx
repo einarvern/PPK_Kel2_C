@@ -7,6 +7,7 @@ import { ProjectFormModal } from '../components/projects/project-form-modal';
 import { Button } from '../components/ui/button';
 import { Toast } from '../components/ui/toast';
 import { FolderIcon, PlusIcon } from '../components/ui/icons';
+import { firstError } from '../lib/errors';
 
 interface DashboardProps {
     projects: Project[];
@@ -39,9 +40,7 @@ export default function Dashboard({ projects }: DashboardProps) {
         router.post('/projects', data, {
             onSuccess: () => setIsCreateModalOpen(false),
             onError: (errors) =>
-                setError(
-                    Object.values(errors)[0] || 'Project tidak dapat dibuat.',
-                ),
+                setError(firstError(errors, 'Project tidak dapat dibuat.')),
             onFinish: () => setIsSubmitting(false),
         });
     };

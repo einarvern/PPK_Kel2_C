@@ -56,7 +56,7 @@ class ProjectController extends Controller
 
     public function update(Request $request, Project $project): JsonResponse
     {
-        abort_unless($project->owner_id === Auth::id(), 403, 'Hanya pemilik proyek yang dapat mengubah proyek ini.');
+        abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat mengubah proyek ini.');
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
@@ -73,7 +73,7 @@ class ProjectController extends Controller
 
     public function destroy(Project $project): JsonResponse
     {
-        abort_unless($project->owner_id === Auth::id(), 403, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
+        abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
 
         $project->delete();
 
@@ -85,7 +85,7 @@ class ProjectController extends Controller
 
     public function addMember(Request $request, Project $project): JsonResponse
     {
-        abort_unless($project->owner_id === Auth::id(), 403, 'Hanya pemilik proyek yang dapat menambah anggota.');
+        abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat menambah anggota.');
 
         $validated = $request->validate([
             'email' => ['required', 'email', 'exists:users,email'],
@@ -100,7 +100,7 @@ class ProjectController extends Controller
             ], 422);
         }
 
-        if ($project->owner_id === $user->id || $project->members()->whereKey($user->id)->exists()) {
+        if ($project->isOwnedBy($user) || $project->hasMember($user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pengguna sudah menjadi anggota proyek atau adalah pemilik proyek.',
@@ -118,10 +118,10 @@ class ProjectController extends Controller
 
     public function removeMember(Project $project, User $user): JsonResponse
     {
-        abort_unless($project->owner_id === Auth::id(), 403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
-        abort_unless($project->members()->whereKey($user->id)->exists() || $project->owner_id === $user->id, 404, 'Pengguna tidak terdaftar di proyek ini.');
+        abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
+        abort_unless($project->hasMember($user) || $project->isOwnedBy($user), 404, 'Pengguna tidak terdaftar di proyek ini.');
 
-        if ($project->owner_id === $user->id) {
+        if ($project->isOwnedBy($user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pemilik proyek tidak dapat dihapus sebagai anggota.',

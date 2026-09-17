@@ -19,20 +19,11 @@ export type Task = {
 export type TaskFilter = {
     search?: string;
     priority?: TaskPriority | 'all';
-    status?: TaskStatus | 'all';
     deadline_filter?: 'all' | 'due_soon' | 'overdue';
-    sort?: 'default' | 'priority_desc' | 'priority_asc' | 'deadline_asc' | 'deadline_desc';
-};
-
-// UI Label Mappings
-export const priorityLabels: Record<TaskPriority, string> = {
-    low: 'Rendah',
-    medium: 'Sedang',
-    high: 'Tinggi',
-};
-
-export const statusLabels: Record<TaskStatus, string> = {
-    todo: 'Belum dikerjakan',
-    in_progress: 'Sedang dikerjakan',
-    done: 'Selesai',
+    sort?:
+        | 'default'
+        | 'priority_desc'
+        | 'priority_asc'
+        | 'deadline_asc'
+        | 'deadline_desc';
 };

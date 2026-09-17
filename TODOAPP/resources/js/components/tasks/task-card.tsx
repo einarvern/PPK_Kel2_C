@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Task, TaskStatus } from '../../types';
 import { PriorityBadge } from '../ui/badge';
+import { formatDateOnly } from '../../lib/date';
 import {
     CheckCircleIcon,
     CircleIcon,
@@ -10,9 +11,6 @@ import {
     EditIcon,
     TrashIcon,
 } from '../ui/icons';
-
-const formatDateOnly = (value?: string | null) =>
-    value ? value.slice(0, 10) : '';
 
 interface TaskCardProps {
     task: Task;

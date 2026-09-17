@@ -5,6 +5,7 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Select } from '../ui/select';
 import { Button } from '../ui/button';
+import { toDateInputValue } from '../../lib/date';
 
 interface TaskFormModalProps {
     isOpen: boolean;
@@ -42,7 +43,7 @@ export function TaskFormModal({
             setDescription(task.description || '');
             setPriority(task.priority);
             setStatus(task.status);
-            setDeadline(task.deadline ? task.deadline.substring(0, 10) : '');
+            setDeadline(toDateInputValue(task.deadline));
         } else {
             setTitle('');
             setDescription('');

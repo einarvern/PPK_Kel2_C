@@ -6,8 +6,6 @@ import { UsersIcon, FolderIcon } from '../ui/icons';
 
 interface ProjectCardProps {
     project: Project;
-    onEdit?: (project: Project) => void;
-    onDelete?: (project: Project) => void;
 }
 
 export function ProjectCard({ project }: ProjectCardProps) {

@@ -13,7 +13,7 @@ Route::middleware('auth.api')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    Route::middleware('not_admin')->group(function (): void {
+    Route::middleware('role:not-admin')->group(function (): void {
         Route::get('/projects', [ProjectController::class, 'index']);
         Route::post('/projects', [ProjectController::class, 'store']);
         Route::get('/projects/{project}', [ProjectController::class, 'show']);
@@ -30,7 +30,7 @@ Route::middleware('auth.api')->group(function (): void {
         Route::patch('/tasks/{task}/status', [TaskController::class, 'updateStatus']);
     });
 
-    Route::prefix('admin')->middleware('admin')->group(function (): void {
+    Route::prefix('admin')->middleware('role:admin')->group(function (): void {
         Route::get('/users', [AdminUserController::class, 'index']);
         Route::post('/users', [AdminUserController::class, 'store']);
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);

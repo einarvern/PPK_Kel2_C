@@ -2,9 +2,7 @@ import React from 'react';
 import type { User } from '../../types';
 import { RoleBadge } from '../ui/badge';
 import { TrashIcon, UserIcon } from '../ui/icons';
-
-const formatDateOnly = (value?: string | null) =>
-    value ? value.slice(0, 10) : '-';
+import { formatDateOnly } from '../../lib/date';
 
 interface UserTableProps {
     users: User[];
@@ -88,7 +86,10 @@ export function UserTable({
                                             <RoleBadge role={user.role} />
                                         </td>
                                         <td className="px-6 py-4 text-xs whitespace-nowrap text-slate-500 dark:text-slate-400">
-                                            {formatDateOnly(user.created_at)}
+                                            {formatDateOnly(
+                                                user.created_at,
+                                                '-',
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-right whitespace-nowrap">
                                             <button

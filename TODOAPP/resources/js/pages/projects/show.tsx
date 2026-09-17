@@ -17,6 +17,7 @@ import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { ProgressBar } from '../../components/ui/progress-bar';
 import { Button } from '../../components/ui/button';
 import { Toast } from '../../components/ui/toast';
+import { firstError } from '../../lib/errors';
 import {
     CheckCircleIcon,
     FolderIcon,
@@ -43,9 +44,6 @@ const priorityRank: Record<TaskPriority, number> = {
     medium: 2,
     low: 1,
 };
-
-const firstError = (errors: Record<string, string>, fallback: string) =>
-    Object.values(errors)[0] || fallback;
 
 export default function ProjectShow({
     project,

@@ -88,43 +88,15 @@ Route::middleware('auth')->group(function () {
         // Projects where user is owner
         $ownedProjects = Project::query()
             ->where('owner_id', $user->id)
-            ->withCount([
-                'tasks',
-                'tasks as completed_tasks_count' => fn ($q) => $q->where('status', 'done'),
-                'members',
-            ])
+            ->withDashboardStats()
             ->get()
-            ->map(fn (Project $p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'description' => $p->description,
-                'owner_id' => $p->owner_id,
-                'is_owner' => true,
-                'tasks_count' => $p->tasks_count,
-                'completed_tasks_count' => $p->completed_tasks_count,
-                'progress_percentage' => $p->tasks_count > 0 ? (int) round(($p->completed_tasks_count / $p->tasks_count) * 100) : 0,
-                'members_count' => $p->members_count + 1,
-            ]);
+            ->map(fn (Project $project) => $project->dashboardData(true));
 
         // Projects where user is member
         $memberProjects = $user->projects()
-            ->withCount([
-                'tasks',
-                'tasks as completed_tasks_count' => fn ($q) => $q->where('status', 'done'),
-                'members',
-            ])
+            ->withDashboardStats()
             ->get()
-            ->map(fn (Project $p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'description' => $p->description,
-                'owner_id' => $p->owner_id,
-                'is_owner' => false,
-                'tasks_count' => $p->tasks_count,
-                'completed_tasks_count' => $p->completed_tasks_count,
-                'progress_percentage' => $p->tasks_count > 0 ? (int) round(($p->completed_tasks_count / $p->tasks_count) * 100) : 0,
-                'members_count' => $p->members_count + 1,
-            ]);
+            ->map(fn (Project $project) => $project->dashboardData(false));
 
         $projects = $ownedProjects->toBase()->concat($memberProjects->toBase())->values();
 
@@ -133,7 +105,7 @@ Route::middleware('auth')->group(function () {
         ]);
     })->name('dashboard');
 
-    Route::middleware('not_admin')->group(function () {
+    Route::middleware('role:not-admin')->group(function () {
         // 2. Buat Proyek Baru
         Route::post('/projects', function (Request $request) {
             $validated = $request->validate([
@@ -155,8 +127,8 @@ Route::middleware('auth')->group(function () {
             $user = Auth::user();
             $project = Project::with('owner:id,name,email,role')->findOrFail($id);
 
-            $isOwner = $project->owner_id === $user->id;
-            $isMember = $project->members()->where('users.id', $user->id)->exists();
+            $isOwner = $project->isOwnedBy($user);
+            $isMember = $project->hasMember($user);
 
             if (! $isOwner && ! $isMember) {
                 abort(403, 'Anda tidak memiliki akses ke proyek ini.');
@@ -270,7 +242,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/projects/{id}/members', function (Request $request, int $id) {
             $project = Project::findOrFail($id);
 
-            if ($project->owner_id !== Auth::id()) {
+            if (! $project->isOwnedBy(Auth::user())) {
                 abort(403, 'Hanya pemilik proyek yang dapat menambah anggota.');
             }
 
@@ -286,11 +258,11 @@ Route::middleware('auth')->group(function () {
                 return back()->withErrors(['email' => 'Admin tidak dapat bergabung ke proyek.']);
             }
 
-            if ($targetUser->id === $project->owner_id) {
+            if ($project->isOwnedBy($targetUser)) {
                 return back()->withErrors(['email' => 'Pemilik proyek sudah otomatis menjadi anggota.']);
             }
 
-            if ($project->members()->where('users.id', $targetUser->id)->exists()) {
+            if ($project->hasMember($targetUser)) {
                 return back()->withErrors(['email' => 'Pengguna ini sudah menjadi anggota proyek.']);
             }
 
@@ -302,7 +274,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/projects/{id}/members/{userId}', function (int $id, int $userId) {
             $project = Project::findOrFail($id);
 
-            if ($project->owner_id !== Auth::id()) {
+            if (! $project->isOwnedBy(Auth::user())) {
                 abort(403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
             }
 
@@ -316,7 +288,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // 7. Panel Admin (Khusus Role Admin)
-    Route::middleware('admin')->prefix('admin')->group(function () {
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('/users', function () {
             $users = User::query()
                 ->select(['id', 'name', 'email', 'role', 'created_at'])

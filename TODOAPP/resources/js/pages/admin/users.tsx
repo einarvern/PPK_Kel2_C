@@ -7,6 +7,7 @@ import { UserFormModal } from '../../components/admin/user-form-modal';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { Button } from '../../components/ui/button';
 import { Toast } from '../../components/ui/toast';
+import { firstError } from '../../lib/errors';
 import {
     PlusIcon,
     UsersIcon,
@@ -52,8 +53,7 @@ export default function AdminUsers({ users }: AdminUsersProps) {
         router.post('/admin/users', data, {
             onError: (errors) =>
                 setError(
-                    Object.values(errors)[0] ||
-                        'Pengguna tidak dapat ditambahkan.',
+                    firstError(errors, 'Pengguna tidak dapat ditambahkan.'),
                 ),
             onSuccess: () => setIsCreateModalOpen(false),
             onFinish: () => setIsSubmitting(false),
@@ -67,9 +67,7 @@ export default function AdminUsers({ users }: AdminUsersProps) {
             preserveScroll: true,
             onSuccess: () => setDeleteTargetUser(null),
             onError: (errors) =>
-                setError(
-                    Object.values(errors)[0] || 'Pengguna tidak dapat dihapus.',
-                ),
+                setError(firstError(errors, 'Pengguna tidak dapat dihapus.')),
         });
     };
 
