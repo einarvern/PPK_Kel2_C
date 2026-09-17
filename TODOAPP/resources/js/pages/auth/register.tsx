@@ -14,24 +14,20 @@ export default function Register() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/register', {
-            onError: () => {
-                console.log('Register attempt with:', data);
-            },
-        });
+        post('/register');
     };
 
     return (
         <GuestLayout
-            title="Daftar Akun Baru"
-            subtitle="Bergabunglah dengan TaskTeam untuk mulai berkolaborasi mengelola tugas tim."
+            title="Buat akun JARA"
+            subtitle="Mulai kelola tugas dengan cara yang lebih sederhana."
         >
-            <Head title="Daftar - TaskTeam" />
+            <Head title="Daftar · Jara" />
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <Input
-                    label="Nama Lengkap *"
-                    placeholder="Contoh: Rio Setiawan"
+                    label="Nama lengkap"
+                    placeholder="Masukkan nama lengkap"
                     value={data.name}
                     onChange={(e) => setData('name', e.target.value)}
                     error={errors.name}
@@ -40,7 +36,7 @@ export default function Register() {
                 />
 
                 <Input
-                    label="Alamat Email *"
+                    label="Email"
                     type="email"
                     placeholder="nama@example.com"
                     value={data.email}
@@ -50,9 +46,9 @@ export default function Register() {
                 />
 
                 <Input
-                    label="Kata Sandi / Password *"
+                    label="Kata sandi"
                     type="password"
-                    placeholder="Minimal 8 karakter (sesuai standar API)"
+                    placeholder="Minimal 8 karakter"
                     value={data.password}
                     onChange={(e) => setData('password', e.target.value)}
                     error={errors.password}
@@ -60,11 +56,13 @@ export default function Register() {
                 />
 
                 <Input
-                    label="Konfirmasi Kata Sandi *"
+                    label="Konfirmasi kata sandi"
                     type="password"
-                    placeholder="Ulangi kata sandi di atas"
+                    placeholder="Ulangi kata sandi"
                     value={data.password_confirmation}
-                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                    onChange={(e) =>
+                        setData('password_confirmation', e.target.value)
+                    }
                     error={errors.password_confirmation}
                     required
                 />
@@ -73,21 +71,20 @@ export default function Register() {
                     type="submit"
                     variant="primary"
                     size="lg"
-                    className="w-full mt-2"
+                    className="mt-2 w-full"
                     isLoading={processing}
                 >
-                    Daftar Sekarang
+                    Buat akun
                 </Button>
             </form>
 
-            {/* Login Link */}
-            <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                Sudah memiliki akun terdaftar?{' '}
+            <div className="mt-6 border-t border-slate-100 pt-5 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                Sudah punya akun?{' '}
                 <Link
                     href="/login"
-                    className="font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                    className="font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
                 >
-                    Masuk ke Akun Anda
+                    Masuk
                 </Link>
             </div>
         </GuestLayout>

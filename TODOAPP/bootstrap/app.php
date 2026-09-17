@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AuthenticateApiToken;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureUserIsNotAdmin;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.api' => AuthenticateApiToken::class,
             'admin' => EnsureUserIsAdmin::class,
+            'not_admin' => EnsureUserIsNotAdmin::class,
         ]);
 
         $middleware->web(append: [

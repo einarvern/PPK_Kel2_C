@@ -1,6 +1,11 @@
 import React from 'react';
 import type { TaskPriority, TaskFilter } from '../../types';
-import { SearchIcon, FilterIcon, ClockIcon, AlertTriangleIcon } from '../ui/icons';
+import {
+    SearchIcon,
+    FilterIcon,
+    ClockIcon,
+    AlertTriangleIcon,
+} from '../ui/icons';
 
 interface TaskFilterBarProps {
     filter: TaskFilter;
@@ -16,7 +21,7 @@ export function TaskFilterBar({
     overdueCount,
 }: TaskFilterBarProps) {
     return (
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col items-stretch justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs md:flex-row md:items-center dark:border-slate-800 dark:bg-slate-900">
             {/* Search Input */}
             <div className="relative flex-1">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -26,13 +31,40 @@ export function TaskFilterBar({
                     type="text"
                     placeholder="Cari tugas berdasarkan judul..."
                     value={filter.search || ''}
-                    onChange={(e) => onChange({ ...filter, search: e.target.value })}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-100 dark:placeholder:text-slate-500"
+                    onChange={(e) =>
+                        onChange({ ...filter, search: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-1.5 pr-3 pl-9 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
             </div>
 
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                    <FilterIcon className="h-3.5 w-3.5 text-slate-400" />
+                    <select
+                        value={filter.sort || 'default'}
+                        onChange={(e) =>
+                            onChange({
+                                ...filter,
+                                sort: e.target.value as TaskFilter['sort'],
+                            })
+                        }
+                        className="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200"
+                        aria-label="Urutkan tugas"
+                    >
+                        <option value="default">Urutan awal</option>
+                        <option value="priority_desc">
+                            Prioritas: tinggi → rendah
+                        </option>
+                        <option value="priority_asc">
+                            Prioritas: rendah → tinggi
+                        </option>
+                        <option value="deadline_asc">Deadline: terdekat</option>
+                        <option value="deadline_desc">Deadline: terjauh</option>
+                    </select>
+                </div>
+
                 {/* Priority Filter */}
                 <div className="flex items-center gap-1.5">
                     <FilterIcon className="h-3.5 w-3.5 text-slate-400" />
@@ -41,10 +73,12 @@ export function TaskFilterBar({
                         onChange={(e) =>
                             onChange({
                                 ...filter,
-                                priority: e.target.value as TaskPriority | 'all',
+                                priority: e.target.value as
+                                    | TaskPriority
+                                    | 'all',
                             })
                         }
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                        className="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200"
                     >
                         <option value="all">Semua Prioritas</option>
                         <option value="high">Prioritas Tinggi</option>
@@ -54,13 +88,16 @@ export function TaskFilterBar({
                 </div>
 
                 {/* Quick Deadline Toggles */}
-                <div className="flex items-center rounded-lg border border-slate-200 p-0.5 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
+                <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-800 dark:bg-slate-800/50">
                     <button
                         type="button"
-                        onClick={() => onChange({ ...filter, deadline_filter: 'all' })}
-                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
-                            !filter.deadline_filter || filter.deadline_filter === 'all'
-                                ? 'bg-white text-slate-800 shadow-2xs dark:bg-slate-700 dark:text-white'
+                        onClick={() =>
+                            onChange({ ...filter, deadline_filter: 'all' })
+                        }
+                        className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                            !filter.deadline_filter ||
+                            filter.deadline_filter === 'all'
+                                ? 'bg-white text-emerald-700 shadow-2xs dark:bg-slate-700 dark:text-emerald-300'
                                 : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
                         }`}
                     >
@@ -73,10 +110,12 @@ export function TaskFilterBar({
                             onChange({
                                 ...filter,
                                 deadline_filter:
-                                    filter.deadline_filter === 'due_soon' ? 'all' : 'due_soon',
+                                    filter.deadline_filter === 'due_soon'
+                                        ? 'all'
+                                        : 'due_soon',
                             })
                         }
-                        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                        className={`inline-flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                             filter.deadline_filter === 'due_soon'
                                 ? 'bg-amber-100 text-amber-900 shadow-2xs dark:bg-amber-950 dark:text-amber-200'
                                 : 'text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30'
@@ -98,10 +137,12 @@ export function TaskFilterBar({
                             onChange({
                                 ...filter,
                                 deadline_filter:
-                                    filter.deadline_filter === 'overdue' ? 'all' : 'overdue',
+                                    filter.deadline_filter === 'overdue'
+                                        ? 'all'
+                                        : 'overdue',
                             })
                         }
-                        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                        className={`inline-flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                             filter.deadline_filter === 'overdue'
                                 ? 'bg-rose-100 text-rose-900 shadow-2xs dark:bg-rose-950 dark:text-rose-200'
                                 : 'text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30'

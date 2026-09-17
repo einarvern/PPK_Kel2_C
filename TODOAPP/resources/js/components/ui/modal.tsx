@@ -10,6 +10,7 @@ export interface ModalProps {
     children: React.ReactNode;
     footer?: React.ReactNode;
     maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+    className?: string;
 }
 
 export function Modal({
@@ -20,6 +21,7 @@ export function Modal({
     children,
     footer,
     maxWidth = 'md',
+    className,
 }: ModalProps) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -52,7 +54,8 @@ export function Modal({
             <div
                 className={cn(
                     'relative w-full rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-slate-900 border border-slate-200 dark:border-slate-800 z-10',
-                    maxWidths[maxWidth]
+                    maxWidths[maxWidth],
+                    className,
                 )}
             >
                 {/* Header */}

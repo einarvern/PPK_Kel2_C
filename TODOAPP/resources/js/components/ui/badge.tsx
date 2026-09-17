@@ -13,7 +13,7 @@ export function Badge({ className, variant = 'default', size = 'md', children, .
         success: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-300',
         warning: 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-300',
         danger: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-300',
-        info: 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-950/40 dark:text-blue-300',
+        info: 'bg-teal-50 text-teal-700 ring-teal-600/20 dark:bg-teal-950/40 dark:text-teal-300',
         purple: 'bg-purple-50 text-purple-700 ring-purple-600/20 dark:bg-purple-950/40 dark:text-purple-300',
     };
 
@@ -59,7 +59,7 @@ export function StatusBadge({ status, className }: { status: TaskStatus; classNa
 
 export function RoleBadge({ role, className }: { role: Role; className?: string }) {
     if (role === 'admin') {
-        return <Badge variant="purple" className={className}>Admin</Badge>;
+        return <Badge variant="success" className={className}>Admin</Badge>;
     }
     return <Badge variant="default" className={className}>Pengguna</Badge>;
 }

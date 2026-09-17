@@ -21,6 +21,7 @@ export type TaskFilter = {
     priority?: TaskPriority | 'all';
     status?: TaskStatus | 'all';
     deadline_filter?: 'all' | 'due_soon' | 'overdue';
+    sort?: 'default' | 'priority_desc' | 'priority_asc' | 'deadline_asc' | 'deadline_desc';
 };
 
 // UI Label Mappings

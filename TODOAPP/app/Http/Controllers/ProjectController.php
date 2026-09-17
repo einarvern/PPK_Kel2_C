@@ -93,6 +93,13 @@ class ProjectController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
 
+        if ($user->role === 'admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin tidak dapat bergabung ke proyek.',
+            ], 422);
+        }
+
         if ($project->owner_id === $user->id || $project->members()->whereKey($user->id)->exists()) {
             return response()->json([
                 'success' => false,

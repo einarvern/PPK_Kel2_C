@@ -201,6 +201,65 @@ class ProjectManagementTest extends TestCase
         ]);
     }
 
+    public function test_admin_is_restricted_to_member_management(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $project = Project::create([
+            'name' => 'User workspace',
+            'owner_id' => $admin->id,
+        ]);
+
+        $this->post('/login', [
+            'email' => $admin->email,
+            'password' => 'password',
+        ])->assertRedirect(route('admin.users'));
+
+        $headers = $this->authHeaders($admin);
+
+        $this->getJson('/api/projects', $headers)->assertForbidden();
+        $this->postJson('/api/projects', [
+            'name' => 'Admin project',
+        ], $headers)->assertForbidden();
+        $this->getJson('/api/projects/'.$project->id, $headers)->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get('/dashboard')
+            ->assertRedirect(route('admin.users'));
+
+        $this->actingAs($admin)
+            ->post('/projects', ['name' => 'Admin web project'])
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get('/projects/'.$project->id)
+            ->assertForbidden();
+    }
+
+    public function test_admin_cannot_be_invited_to_a_project(): void
+    {
+        $owner = User::factory()->create();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $project = Project::create([
+            'name' => 'Team list',
+            'owner_id' => $owner->id,
+        ]);
+
+        $this->postJson('/api/projects/'.$project->id.'/members', [
+            'email' => $admin->email,
+        ], $this->authHeaders($owner))->assertUnprocessable();
+
+        $this->actingAs($owner)
+            ->post('/projects/'.$project->id.'/members', [
+                'email' => $admin->email,
+            ])
+            ->assertSessionHasErrors('email');
+
+        $this->assertDatabaseMissing('project_members', [
+            'project_id' => $project->id,
+            'user_id' => $admin->id,
+        ]);
+    }
+
     /** @return array<string, string> */
     private function authHeaders(User $user): array
     {

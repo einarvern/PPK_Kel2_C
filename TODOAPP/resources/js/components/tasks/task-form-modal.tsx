@@ -60,13 +60,21 @@ export function TaskFormModal({
             return;
         }
 
-        onSubmit({
+        const data: {
+            title: string;
+            description: string;
+            priority: TaskPriority;
+            status: TaskStatus;
+            deadline: string | null;
+        } = {
             title: title.trim(),
             description: description.trim(),
             priority,
             status,
             deadline: deadline ? deadline : null,
-        });
+        };
+
+        onSubmit(data);
     };
 
     return (
@@ -77,14 +85,14 @@ export function TaskFormModal({
             description={
                 task
                     ? 'Perbarui detail tugas, tenggat waktu, atau status progres.'
-                    : 'Tambahkan rincian pekerjaan baru ke dalam proyek ini.'
+                    : undefined
             }
             maxWidth="md"
         >
             <form onSubmit={handleSubmit} className="space-y-4">
                 <Input
                     label="Judul Tugas *"
-                    placeholder="Contoh: Membuat rancangan skema database"
+                    placeholder="Masukkan judul tugas"
                     value={title}
                     onChange={(e) => {
                         setTitle(e.target.value);
@@ -96,17 +104,19 @@ export function TaskFormModal({
 
                 <Textarea
                     label="Deskripsi Tugas (Opsional)"
-                    placeholder="Tuliskan catatan, langkah pengerjaan, atau link referensi..."
+                    placeholder="Masukkan deskripsi tugas"
                     rows={3}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <Select
                         label="Prioritas"
                         value={priority}
-                        onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                        onChange={(e) =>
+                            setPriority(e.target.value as TaskPriority)
+                        }
                     >
                         <option value="low">Rendah (Low)</option>
                         <option value="medium">Sedang (Medium)</option>
@@ -116,7 +126,9 @@ export function TaskFormModal({
                     <Select
                         label="Status"
                         value={status}
-                        onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                        onChange={(e) =>
+                            setStatus(e.target.value as TaskStatus)
+                        }
                     >
                         <option value="todo">Belum dikerjakan</option>
                         <option value="in_progress">Sedang dikerjakan</option>
@@ -125,18 +137,26 @@ export function TaskFormModal({
                 </div>
 
                 <Input
-                    label="Tenggat Waktu / Deadline (Opsional)"
+                    label="Deadline"
                     type="date"
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    helperText="Tugas akan disorot jika mendekati atau melewati tanggal ini."
                 />
 
                 <div className="flex justify-end gap-2.5 pt-4">
-                    <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
                         Batal
                     </Button>
-                    <Button type="submit" variant="primary" isLoading={isLoading}>
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        isLoading={isLoading}
+                    >
                         {task ? 'Simpan Perubahan' : 'Tambah Tugas'}
                     </Button>
                 </div>
