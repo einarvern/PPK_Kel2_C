@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Project;
+use App\Models\ProjectMember;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -8,9 +9,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 
-// Redirect root to dashboard or login
+// Show the public landing page to guests and the dashboard to authenticated users.
 Route::get('/', function () {
-    return Auth::check() ? redirect()->route('dashboard') : redirect()->route('login');
+    return Auth::check() ? redirect()->route('dashboard') : inertia('welcome');
 });
 
 // --- AUTHENTICATION (WEB SESSION) ---
@@ -27,6 +28,11 @@ Route::middleware('guest')->group(function () {
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+
+            if (Auth::user()?->role === 'admin') {
+                return redirect()->route('admin.users');
+            }
+
             return redirect()->intended(route('dashboard'));
         }
 
@@ -56,7 +62,7 @@ Route::middleware('guest')->group(function () {
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard')->with('success', 'Pendaftaran berhasil! Selamat datang di TaskTeam.');
+        return redirect()->route('dashboard')->with('success', 'Pendaftaran berhasil! Selamat datang di JARA.');
     });
 });
 
@@ -68,7 +74,6 @@ Route::post('/logout', function (Request $request) {
     return redirect()->route('login');
 })->name('logout');
 
-
 // --- PROTECTED APPLICATION ROUTES (AUTHENTICATED) ---
 Route::middleware('auth')->group(function () {
 
@@ -76,46 +81,22 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
         $user = Auth::user();
 
+        if ($user->role === 'admin') {
+            return redirect()->route('admin.users');
+        }
+
         // Projects where user is owner
         $ownedProjects = Project::query()
             ->where('owner_id', $user->id)
-            ->withCount([
-                'tasks',
-                'tasks as completed_tasks_count' => fn ($q) => $q->where('status', 'done'),
-                'members',
-            ])
+            ->withDashboardStats()
             ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'description' => $p->description,
-                'owner_id' => $p->owner_id,
-                'is_owner' => true,
-                'tasks_count' => $p->tasks_count,
-                'completed_tasks_count' => $p->completed_tasks_count,
-                'progress_percentage' => $p->tasks_count > 0 ? (int) round(($p->completed_tasks_count / $p->tasks_count) * 100) : 0,
-                'members_count' => $p->members_count + 1,
-            ]);
+            ->map(fn (Project $project) => $project->dashboardData(true));
 
         // Projects where user is member
         $memberProjects = $user->projects()
-            ->withCount([
-                'tasks',
-                'tasks as completed_tasks_count' => fn ($q) => $q->where('status', 'done'),
-                'members',
-            ])
+            ->withDashboardStats()
             ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'description' => $p->description,
-                'owner_id' => $p->owner_id,
-                'is_owner' => false,
-                'tasks_count' => $p->tasks_count,
-                'completed_tasks_count' => $p->completed_tasks_count,
-                'progress_percentage' => $p->tasks_count > 0 ? (int) round(($p->completed_tasks_count / $p->tasks_count) * 100) : 0,
-                'members_count' => $p->members_count + 1,
-            ]);
+            ->map(fn (Project $project) => $project->dashboardData(false));
 
         $projects = $ownedProjects->toBase()->concat($memberProjects->toBase())->values();
 
@@ -124,159 +105,190 @@ Route::middleware('auth')->group(function () {
         ]);
     })->name('dashboard');
 
-    // 2. Buat Proyek Baru
-    Route::post('/projects', function (Request $request) {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-        ]);
-
-        Project::create([
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'owner_id' => Auth::id(),
-        ]);
-
-        return back()->with('success', 'Proyek baru berhasil dibuat!');
-    })->name('projects.store');
-
-    // 3. Detail Proyek & Board Tugas
-    Route::get('/projects/{id}', function ($id) {
-        $user = Auth::user();
-        $project = Project::findOrFail($id);
-
-        $isOwner = $project->owner_id === $user->id;
-        $isMember = $project->members()->where('users.id', $user->id)->exists();
-
-        if (! $isOwner && ! $isMember && $user->role !== 'admin') {
-            abort(403, 'Anda tidak memiliki akses ke proyek ini.');
-        }
-
-        $tasks = $project->tasks()->get();
-
-        $members = $project->members()
-            ->select(['users.id', 'users.name', 'users.email', 'users.role'])
-            ->get()
-            ->map(fn ($u) => [
-                'id' => $u->pivot->id ?? $u->id,
-                'project_id' => $project->id,
-                'user_id' => $u->id,
-                'user' => [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'email' => $u->email,
-                    'role' => $u->role,
-                ],
-                'joined_at' => date('Y-m-d'),
+    Route::middleware('role:not-admin')->group(function () {
+        // 2. Buat Proyek Baru
+        Route::post('/projects', function (Request $request) {
+            $validated = $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'description' => ['nullable', 'string'],
             ]);
 
-        return inertia('projects/show', [
-            'project' => [
-                'id' => $project->id,
-                'name' => $project->name,
-                'description' => $project->description,
-                'owner_id' => $project->owner_id,
-                'is_owner' => $isOwner,
-            ],
-            'tasks' => $tasks,
-            'members' => $members,
-        ]);
-    })->name('projects.show');
+            Project::create([
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'owner_id' => Auth::id(),
+            ]);
 
-    // 4. Tambah Tugas Baru dalam Proyek
-    Route::post('/projects/{id}/tasks', function (Request $request, $id) {
-        $project = Project::findOrFail($id);
+            return back()->with('success', 'Proyek baru berhasil dibuat!');
+        })->name('projects.store');
 
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'priority' => ['required', 'in:low,medium,high'],
-            'status' => ['required', 'in:todo,in_progress,done'],
-            'deadline' => ['nullable', 'date'],
-        ]);
+        // 3. Detail Proyek & Board Tugas
+        Route::get('/projects/{id}', function (int $id) {
+            $user = Auth::user();
+            $project = Project::with('owner:id,name,email,role')->findOrFail($id);
 
-        $project->tasks()->create($validated);
+            $isOwner = $project->isOwnedBy($user);
+            $isMember = $project->hasMember($user);
 
-        return back()->with('success', 'Tugas berhasil ditambahkan ke proyek!');
-    })->name('tasks.store');
+            if (! $isOwner && ! $isMember) {
+                abort(403, 'Anda tidak memiliki akses ke proyek ini.');
+            }
 
-    // 5. Update Status / Edit / Hapus Tugas
-    Route::patch('/tasks/{id}', function (Request $request, $id) {
-        $task = Task::findOrFail($id);
-        $validated = $request->validate([
-            'status' => ['required', 'in:todo,in_progress,done'],
-        ]);
+            $tasks = $project->tasks()->get();
 
-        $task->update($validated);
+            $members = ProjectMember::query()
+                ->where('project_id', $project->id)
+                ->with('user:id,name,email,role')
+                ->get()
+                ->map(fn (ProjectMember $member) => [
+                    'id' => $member->id,
+                    'project_id' => $project->id,
+                    'user_id' => $member->user_id,
+                    'user' => [
+                        'id' => $member->user->id,
+                        'name' => $member->user->name,
+                        'email' => $member->user->email,
+                        'role' => $member->user->role,
+                    ],
+                    'joined_at' => $member->created_at?->toDateString(),
+                ]);
 
-        return back()->with('success', 'Status tugas berhasil diperbarui!');
-    })->name('tasks.updateStatus');
+            return inertia('projects/show', [
+                'project' => [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'description' => $project->description,
+                    'owner_id' => $project->owner_id,
+                    'owner' => $project->owner->only(['id', 'name', 'email', 'role']),
+                    'is_owner' => $isOwner,
+                    'created_at' => $project->created_at?->toDateString(),
+                ],
+                'tasks' => $tasks,
+                'members' => $members,
+            ]);
+        })->name('projects.show');
 
-    Route::put('/tasks/{id}', function (Request $request, $id) {
-        $task = Task::findOrFail($id);
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'priority' => ['required', 'in:low,medium,high'],
-            'status' => ['required', 'in:todo,in_progress,done'],
-            'deadline' => ['nullable', 'date'],
-        ]);
+        // 4. Tambah Tugas Baru dalam Proyek
+        Route::post('/projects/{id}/tasks', function (Request $request, int $id) {
+            $project = Project::findOrFail($id);
 
-        $task->update($validated);
+            abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
-        return back()->with('success', 'Tugas berhasil diperbarui!');
-    })->name('tasks.update');
+            $validated = $request->validate([
+                'title' => ['required', 'string', 'max:255'],
+                'description' => ['nullable', 'string'],
+                'priority' => ['required', 'in:low,medium,high'],
+                'status' => ['required', 'in:todo,in_progress,done'],
+                'deadline' => ['nullable', 'date'],
+            ]);
 
-    Route::delete('/tasks/{id}', function ($id) {
-        $task = Task::findOrFail($id);
-        $task->delete();
+            $task = $project->tasks()->create([
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'priority' => $validated['priority'],
+                'status' => $validated['status'],
+                'deadline' => $validated['deadline'] ?? null,
+            ]);
 
-        return back()->with('success', 'Tugas berhasil dihapus!');
-    })->name('tasks.destroy');
+            return back()->with('success', 'Tugas berhasil ditambahkan ke proyek!');
+        })->name('tasks.store');
 
-    // 6. Kelola Anggota Proyek (Invite & Remove Member)
-    Route::post('/projects/{id}/members', function (Request $request, $id) {
-        $project = Project::findOrFail($id);
+        // 5. Update Status / Edit / Hapus Tugas
+        Route::patch('/tasks/{id}', function (Request $request, int $id) {
+            $task = Task::with('project')->findOrFail($id);
+            abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
-        if ($project->owner_id !== Auth::id()) {
-            abort(403, 'Hanya pemilik proyek yang dapat menambah anggota.');
-        }
+            $validated = $request->validate([
+                'status' => ['required', 'in:todo,in_progress,done'],
+            ]);
 
-        $validated = $request->validate([
-            'email' => ['required', 'email', 'exists:users,email'],
-        ], [
-            'email.exists' => 'Pengguna dengan email ini belum terdaftar di sistem.',
-        ]);
+            $task->update($validated);
 
-        $targetUser = User::where('email', $validated['email'])->firstOrFail();
+            return back()->with('success', 'Status tugas berhasil diperbarui!');
+        })->name('tasks.updateStatus');
 
-        if ($targetUser->id === $project->owner_id) {
-            return back()->withErrors(['email' => 'Pemilik proyek sudah otomatis menjadi anggota.']);
-        }
+        Route::put('/tasks/{id}', function (Request $request, int $id) {
+            $task = Task::with('project')->findOrFail($id);
+            abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
 
-        if ($project->members()->where('users.id', $targetUser->id)->exists()) {
-            return back()->withErrors(['email' => 'Pengguna ini sudah menjadi anggota proyek.']);
-        }
+            $validated = $request->validate([
+                'title' => ['required', 'string', 'max:255'],
+                'description' => ['nullable', 'string'],
+                'priority' => ['required', 'in:low,medium,high'],
+                'status' => ['required', 'in:todo,in_progress,done'],
+                'deadline' => ['nullable', 'date'],
+            ]);
 
-        $project->members()->attach($targetUser->id);
+            $task->update([
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'priority' => $validated['priority'],
+                'status' => $validated['status'],
+                'deadline' => $validated['deadline'] ?? null,
+            ]);
 
-        return back()->with('success', "{$targetUser->name} berhasil ditambahkan ke proyek!");
-    })->name('projects.members.store');
+            return back()->with('success', 'Tugas berhasil diperbarui!');
+        })->name('tasks.update');
 
-    Route::delete('/projects/{id}/members/{userId}', function ($id, $userId) {
-        $project = Project::findOrFail($id);
+        Route::delete('/tasks/{id}', function (int $id) {
+            $task = Task::with('project')->findOrFail($id);
+            abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+            $task->delete();
 
-        if ($project->owner_id !== Auth::id()) {
-            abort(403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
-        }
+            return back()->with('success', 'Tugas berhasil dihapus!');
+        })->name('tasks.destroy');
 
-        $project->members()->detach($userId);
+        // 6. Kelola Anggota Proyek (Invite & Remove Member)
+        Route::post('/projects/{id}/members', function (Request $request, int $id) {
+            $project = Project::findOrFail($id);
 
-        return back()->with('success', 'Anggota berhasil dikeluarkan dari proyek.');
-    })->name('projects.members.destroy');
+            if (! $project->isOwnedBy(Auth::user())) {
+                abort(403, 'Hanya pemilik proyek yang dapat menambah anggota.');
+            }
+
+            $validated = $request->validate([
+                'email' => ['required', 'email', 'exists:users,email'],
+            ], [
+                'email.exists' => 'Pengguna dengan email ini belum terdaftar di sistem.',
+            ]);
+
+            $targetUser = User::where('email', $validated['email'])->firstOrFail();
+
+            if ($targetUser->role === 'admin') {
+                return back()->withErrors(['email' => 'Admin tidak dapat bergabung ke proyek.']);
+            }
+
+            if ($project->isOwnedBy($targetUser)) {
+                return back()->withErrors(['email' => 'Pemilik proyek sudah otomatis menjadi anggota.']);
+            }
+
+            if ($project->hasMember($targetUser)) {
+                return back()->withErrors(['email' => 'Pengguna ini sudah menjadi anggota proyek.']);
+            }
+
+            $project->members()->attach($targetUser->id);
+
+            return back()->with('success', "{$targetUser->name} berhasil ditambahkan ke proyek!");
+        })->name('projects.members.store');
+
+        Route::delete('/projects/{id}/members/{userId}', function (int $id, int $userId) {
+            $project = Project::findOrFail($id);
+
+            if (! $project->isOwnedBy(Auth::user())) {
+                abort(403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
+            }
+
+            $member = User::findOrFail($userId);
+            abort_unless($project->members()->whereKey($member->id)->exists(), 404, 'Pengguna bukan anggota proyek ini.');
+
+            $project->members()->detach($member->id);
+
+            return back()->with('success', 'Anggota berhasil dikeluarkan dari proyek.');
+        })->name('projects.members.destroy');
+    });
 
     // 7. Panel Admin (Khusus Role Admin)
-    Route::middleware('admin')->prefix('admin')->group(function () {
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('/users', function () {
             $users = User::query()
                 ->select(['id', 'name', 'email', 'role', 'created_at'])

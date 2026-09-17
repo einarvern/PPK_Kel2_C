@@ -22,12 +22,3 @@ export type ProjectMember = {
     user: User;
     joined_at?: string;
 };
-
-export type ProjectStats = {
-    total_projects: number;
-    owned_projects: number;
-    member_projects: number;
-    total_tasks: number;
-    completed_tasks: number;
-    overall_progress: number;
-};

@@ -6,7 +6,10 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -21,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read Collection<int, Project> $ownedProjects
+ * @property-read Collection<int, Project> $projects
  */
 #[Fillable(['name', 'email', 'password', 'role'])]
 #[Hidden(['password', 'remember_token'])]
@@ -42,14 +47,15 @@ class User extends Authenticatable
         ];
     }
 
-    public function ownedProjects(): \Illuminate\Database\Eloquent\Relations\HasMany
+    /** @return HasMany<Project, $this> */
+    public function ownedProjects(): HasMany
     {
         return $this->hasMany(Project::class, 'owner_id');
     }
 
-    public function projects(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    /** @return BelongsToMany<Project, $this> */
+    public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class, 'project_members', 'user_id', 'project_id');
     }
 }
-

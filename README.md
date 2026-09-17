@@ -1,4 +1,4 @@
-# TaskTeam (Jara) — Aplikasi Manajemen Tugas & Kolaborasi Tim
+# JARA — Advanced To-Do List untuk Personal & Tim
 > **Repositori Resmi:** PPK Kelompok 2 Kelas C  
 > **Mata Kuliah / Praktikum:** Praktikum Pemrograman Komputer (PPK)  
 > **Tech Stack:** Laravel Framework (PHP) • Inertia.js / Blade • React 19 • Tailwind CSS • MySQL 8.4
@@ -7,7 +7,7 @@
 
 ## 📌 1. Deskripsi Proyek
 
-**TaskTeam (Jara)** adalah aplikasi berbasis web yang dirancang untuk mempermudah individu dan tim dalam merencanakan, mengorganisasi, dan memantau penyelesaian tugas secara terstruktur dan transparan.
+**JARA** adalah aplikasi web *advanced to-do list* untuk membantu individu dan tim membuat daftar, mengelompokkan tugas, berkolaborasi, serta memantau penyelesaian pekerjaan secara terstruktur.
 
 Aplikasi ini mendukung alur kerja kolaboratif:
 - **Pengguna** dapat membuat ruang kerja (*project*), mengatur prioritas dan tenggat waktu tugas, menandai tugas yang telah rampung, serta mengundang anggota tim untuk berkolaborasi.
@@ -65,11 +65,11 @@ Proyek ini dikembangkan oleh **Kelompok 2 Kelas C** dengan pembagian tanggung ja
   - **Admin**: Akses panel khusus untuk mengelola, menambah, dan menghapus pengguna sistem.
 - **Proteksi Rute**: Mengalihkan pengguna non-otentikasi ke halaman login dan membatasi halaman admin hanya untuk role `admin`.
 
-### 3.2. Ruang Kerja & Kolaborasi Proyek
-- **Multi-Project Support**: Pengguna dapat membuat lebih dari satu proyek/daftar tugas.
-- **Kepemilikan Proyek (*Project Ownership*)**: Setiap proyek memiliki satu pemilik tetap (*owner*).
+### 3.2. Daftar Tugas & Kolaborasi Tim
+- **Daftar Pribadi atau Tim**: Pengguna dapat membuat lebih dari satu proyek/daftar tugas, baik untuk pekerjaan pribadi maupun kolaborasi.
+- **Kepemilikan Daftar (*Project Ownership*)**: Setiap daftar memiliki satu pemilik tetap (*owner*).
 - **Manajemen Anggota**: Pemilik proyek dapat mengundang anggota melalui email dan mengeluarkan anggota dari proyek.
-- **Akses Anggota**: Anggota yang tergabung dapat melihat seluruh tugas dalam proyek tersebut.
+- **Akses Anggota**: Anggota yang tergabung dapat melihat dan mengelola tugas dalam proyek tersebut.
 
 ### 3.3. Pengelolaan Tugas (*Task Management*)
 - **Atribut Tugas Lengkap**: Judul tugas, deskripsi, status, prioritas, dan tenggat waktu (*deadline*).
@@ -82,6 +82,7 @@ Proyek ini dikembangkan oleh **Kelompok 2 Kelas C** dengan pembagian tanggung ja
   - `Sedang` (*Medium*)
   - `Tinggi` (*High*)
 - **Quick Status Toggle**: Kemudahan menandai tugas selesai langsung dari kartu tugas.
+- **Pengurutan Tugas**: Tugas dapat diurutkan berdasarkan prioritas atau tenggat waktu dalam setiap kolom board.
 
 ### 3.4. Kalkulasi & Pemantauan Progres
 - **Persentase Progres Otomatis**: Dihitung dengan formula:
@@ -98,66 +99,28 @@ Proyek ini dikembangkan oleh **Kelompok 2 Kelas C** dengan pembagian tanggung ja
 
 ---
 
-## 🗄️ 4. Skema Basis Data & Pemetaan Nilai (Database Schema)
+## 🗄️ 4. ERD Sederhana & Pemetaan Nilai
 
-Sistem menggunakan 5 entitas utama pada basis data MySQL yang saling berelasi:
+Database MySQL memakai lima entitas inti; relasi tambahan hanya digunakan untuk kolaborasi project.
 
 ```mermaid
 erDiagram
-    User ||--o{ Project : "owns"
-    User ||--o{ ProjectMember : "participates_in"
-    User ||--o{ ApiToken : "has"
-    Project ||--o{ ProjectMember : "has"
-    Project ||--o{ Task : "contains"
-
-    User {
-        bigint id PK
-        string name
-        string email UK
-        string password
-        string role "user | admin"
-        datetime created_at
-        datetime updated_at
-    }
-
-    Project {
-        bigint id PK
-        string name
-        text description "nullable"
-        bigint owner_id FK
-    }
-
-    ProjectMember {
-        bigint id PK
-        bigint project_id FK
-        bigint user_id FK
-    }
-
-    Task {
-        bigint id PK
-        bigint project_id FK
-        string title
-        text description "nullable"
-        string priority "low | medium | high"
-        string status "todo | in_progress | done"
-        date deadline "nullable"
-    }
-
-    ApiToken {
-        bigint id PK
-        bigint user_id FK
-        string name
-        string token_hash UK
-        datetime last_used_at "nullable"
-        datetime created_at
-        datetime updated_at
-    }
+    USERS ||--o{ PROJECTS : owns
+    USERS ||--o{ PROJECT_MEMBERS : joins
+    PROJECTS ||--o{ PROJECT_MEMBERS : has_members
+    PROJECTS ||--o{ TASKS : contains
+    USERS ||--o{ API_TOKENS : has
 ```
 
-> **Catatan Teknis Model Basis Data:**
-> - Entitas `Project`, `ProjectMember`, dan `Task` menggunakan `public $timestamps = false;` sesuai dengan rancangan tabel migrasi.
-> - Tabel `users` dan `api_tokens` menggunakan timestamps standar Laravel (`created_at`, `updated_at`).
-> - Tabel pivot `project_members` memiliki indeks unik komposit pada `(project_id, user_id)` untuk menjamin integritas keanggotaan.
+| Tabel | Fungsi inti |
+| :--- | :--- |
+| `users` | Akun pengguna dengan role `user` atau `admin`. |
+| `projects` | Daftar tugas pribadi atau project tim, dengan satu `owner_id`. |
+| `project_members` | Anggota project; kombinasi `project_id` + `user_id` unik. |
+| `tasks` | Tugas dalam sebuah daftar: judul, prioritas, status, dan deadline. |
+| `api_tokens` | Token Bearer untuk REST API. |
+
+Semua tabel inti menyimpan waktu `created_at` dan `updated_at`. Foreign key pada relasi project, task, dan anggota memakai *cascade delete* agar data terkait tidak tertinggal.
 
 ### 4.1. Pemetaan Nilai Enum (Database vs Label Tampilan UI)
 Untuk menjaga konsistensi antara kode backend dan tampilan antarmuka pengguna:
@@ -209,9 +172,9 @@ Dikelola di `routes/web.php` untuk interaksi antarmuka pengguna berbasis React:
 | **Dashboard** | `GET` | `/dashboard` | Menampilkan proyek milik sendiri & proyek tim | Auth |
 | **Project** | `POST` | `/projects` | Membuat proyek baru | Auth |
 | **Project** | `GET` | `/projects/{id}` | Halaman detail proyek, kanban board, & anggota | Member/Owner |
-| **Task** | `POST` | `/projects/{id}/tasks` | Menambahkan tugas baru ke dalam proyek | Member/Owner |
+| **Task** | `POST` | `/projects/{id}/tasks` | Menambahkan tugas pada workspace bersama | Member/Owner |
 | **Task** | `PATCH` | `/tasks/{id}` | Memperbarui status tugas (Quick status toggle) | Member/Owner |
-| **Task** | `PUT` | `/tasks/{id}` | Mengedit detail judul, deskripsi, prioritas, deadline | Member/Owner |
+| **Task** | `PUT` | `/tasks/{id}` | Mengedit detail tugas | Member/Owner |
 | **Task** | `DELETE` | `/tasks/{id}` | Menghapus item tugas dari proyek | Member/Owner |
 | **Member** | `POST` | `/projects/{id}/members` | Menambahkan anggota tim via email pengguna | Owner |
 | **Member** | `DELETE` | `/projects/{id}/members/{userId}` | Mengeluarkan anggota dari proyek | Owner |
@@ -236,8 +199,8 @@ Dikelola di `routes/api.php` untuk pengujian independen via Postman/cURL menggun
 | **Progress** | `GET` | `/api/projects/{project}/progress` | **Kalkulasi progres (total, selesai, %, overdue)** | Member/Owner |
 | **Member** | `POST` | `/api/projects/{project}/members` | Menambahkan anggota proyek | Owner |
 | **Member** | `DELETE` | `/api/projects/{project}/members/{user}` | Menghapus anggota proyek | Owner |
-| **Task** | `GET` | `/api/projects/{project}/tasks` | Mendapatkan daftar tugas terurut deadline | Member/Owner |
-| **Task** | `POST` | `/api/projects/{project}/tasks` | Menambahkan tugas baru | Member/Owner |
+| **Task** | `GET` | `/api/projects/{project}/tasks?sort=priority|deadline&direction=asc|desc` | Mendapatkan dan mengurutkan daftar tugas | Member/Owner |
+| **Task** | `POST` | `/api/projects/{project}/tasks` | Menambahkan tugas pada workspace bersama | Member/Owner |
 | **Task** | `PUT` | `/api/tasks/{task}` | Memperbarui detail tugas | Member/Owner |
 | **Task** | `PATCH` | `/api/tasks/{task}/status` | Mengubah status penyelesaian tugas | Member/Owner |
 | **Task** | `DELETE` | `/api/tasks/{task}` | Menghapus tugas | Member/Owner |
@@ -351,7 +314,7 @@ Sebelum peluncuran rilis awal, seluruh tim menguji 6 skenario keberhasilan MVP:
 Fitur berikut tidak dimasukkan ke dalam ruang lingkup MVP dan direncanakan untuk pengembangan tahap lanjut:
 - Notifikasi email atau notifikasi web push.
 - Unggah berkas lampiran (*file attachment*), komentar pada tugas, dan log riwayat aktivitas.
-- Pembagian tugas otomatis (*smart task assignment*) dan integrasi kalender eksternal (Google Calendar).
+- Integrasi kalender eksternal (Google Calendar).
 - Aplikasi mobile native (Android/iOS).
 
 ---

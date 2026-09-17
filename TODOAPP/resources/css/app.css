@@ -1,5 +1,13 @@
 @import 'tailwindcss';
 
+/* JARA uses a single, always-light visual theme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html,
+body {
+    color-scheme: light;
+}
+
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 

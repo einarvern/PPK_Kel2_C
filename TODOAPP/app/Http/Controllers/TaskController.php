@@ -10,35 +10,47 @@ use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
-    public function index(Project $project): JsonResponse
+    public function index(Request $request, Project $project): JsonResponse
     {
-        abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+        $this->authorizeProjectAccess($project);
+
+        $validated = $request->validate([
+            'sort' => ['nullable', 'in:priority,deadline'],
+            'direction' => ['nullable', 'in:asc,desc'],
+        ]);
+
+        $direction = $validated['direction'] ?? 'asc';
+        $tasks = $project->tasks();
+
+        if (($validated['sort'] ?? null) === 'priority') {
+            if ($direction === 'desc') {
+                $tasks->orderByRaw("CASE priority WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END DESC");
+            } else {
+                $tasks->orderByRaw("CASE priority WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END ASC");
+            }
+        }
+
+        if (($validated['sort'] ?? null) === 'deadline') {
+            // Tasks without a deadline remain at the end of the list.
+            $tasks->orderByRaw('deadline IS NULL');
+            if ($direction === 'desc') {
+                $tasks->orderBy('deadline', 'desc');
+            } else {
+                $tasks->orderBy('deadline', 'asc');
+            }
+        }
 
         return response()->json([
             'success' => true,
-            'data' => $project->tasks()->orderBy('deadline')->get(),
+            'data' => $tasks->get(),
         ]);
     }
 
     public function store(Request $request, Project $project): JsonResponse
     {
-        abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+        $this->authorizeProjectAccess($project);
 
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'priority' => ['required', 'in:low,medium,high'],
-            'status' => ['required', 'in:todo,in_progress,done'],
-            'deadline' => ['nullable', 'date'],
-        ]);
-
-        $task = $project->tasks()->create([
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'priority' => $validated['priority'],
-            'status' => $validated['status'],
-            'deadline' => $validated['deadline'] ?? null,
-        ]);
+        $task = $project->tasks()->create($this->validateTask($request, true));
 
         return response()->json([
             'success' => true,
@@ -48,17 +60,9 @@ class TaskController extends Controller
 
     public function update(Request $request, Task $task): JsonResponse
     {
-        abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+        $this->authorizeProjectAccess($task->project);
 
-        $validated = $request->validate([
-            'title' => ['sometimes', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'priority' => ['sometimes', 'in:low,medium,high'],
-            'status' => ['sometimes', 'in:todo,in_progress,done'],
-            'deadline' => ['nullable', 'date'],
-        ]);
-
-        $task->update($validated);
+        $task->update($this->validateTask($request, false));
 
         return response()->json([
             'success' => true,
@@ -68,7 +72,7 @@ class TaskController extends Controller
 
     public function destroy(Task $task): JsonResponse
     {
-        abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+        $this->authorizeProjectAccess($task->project);
 
         $task->delete();
 
@@ -80,7 +84,7 @@ class TaskController extends Controller
 
     public function updateStatus(Request $request, Task $task): JsonResponse
     {
-        abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+        $this->authorizeProjectAccess($task->project);
 
         $validated = $request->validate([
             'status' => ['required', 'in:todo,in_progress,done'],
@@ -92,5 +96,22 @@ class TaskController extends Controller
             'success' => true,
             'data' => $task->fresh(),
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function validateTask(Request $request, bool $creating): array
+    {
+        return $request->validate([
+            'title' => [$creating ? 'required' : 'sometimes', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'priority' => [$creating ? 'required' : 'sometimes', 'in:low,medium,high'],
+            'status' => [$creating ? 'required' : 'sometimes', 'in:todo,in_progress,done'],
+            'deadline' => ['nullable', 'date'],
+        ]);
+    }
+
+    private function authorizeProjectAccess(Project $project): void
+    {
+        abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
     }
 }

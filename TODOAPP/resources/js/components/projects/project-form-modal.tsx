@@ -52,13 +52,13 @@ export function ProjectFormModal({
             description={
                 project
                     ? 'Perbarui nama dan deskripsi ruang kerja proyek ini.'
-                    : 'Tambahkan proyek atau daftar tugas baru untuk mulai mengorganisasi pekerjaan tim Anda.'
+                    : undefined
             }
         >
             <form onSubmit={handleSubmit} className="space-y-4">
                 <Input
-                    label="Nama Proyek / Daftar Tugas *"
-                    placeholder="Contoh: Pengembangan Website TaskTeam"
+                    label="Nama Proyek*"
+                    placeholder="Jarajir"
                     value={name}
                     onChange={(e) => {
                         setName(e.target.value);
@@ -69,18 +69,27 @@ export function ProjectFormModal({
                 />
 
                 <Textarea
-                    label="Deskripsi Proyek (Opsional)"
-                    placeholder="Tuliskan tujuan singkat, catatan proyek, atau instruksi tim..."
+                    label="Deskripsi Proyek"
+                    placeholder="Apalah itulah"
                     rows={3}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                 />
 
                 <div className="flex justify-end gap-2.5 pt-4">
-                    <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
                         Batal
                     </Button>
-                    <Button type="submit" variant="primary" isLoading={isLoading}>
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        isLoading={isLoading}
+                    >
                         {project ? 'Simpan Perubahan' : 'Buat Proyek'}
                     </Button>
                 </div>

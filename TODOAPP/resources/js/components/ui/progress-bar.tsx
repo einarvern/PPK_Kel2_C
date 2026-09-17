@@ -29,8 +29,8 @@ export function ProgressBar({
 
     const getProgressColor = () => {
         if (percentage === 100) return 'bg-emerald-500';
-        if (percentage >= 50) return 'bg-indigo-600';
-        if (percentage > 0) return 'bg-amber-500';
+        if (percentage >= 50) return 'bg-emerald-600';
+        if (percentage > 0) return 'bg-lime-500';
         return 'bg-slate-300 dark:bg-slate-700';
     };
 
