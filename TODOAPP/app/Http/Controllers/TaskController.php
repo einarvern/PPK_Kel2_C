@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
-    public function index(Request $request, Project $project): JsonResponse
+    public function index(Request $request, Project|int|string $project): JsonResponse
     {
-        $this->authorizeProjectAccess($project);
+        $targetProject = $this->resolveVisibleProject($project);
 
         $validated = $request->validate([
             'sort' => ['nullable', 'in:priority,deadline'],
@@ -20,7 +20,7 @@ class TaskController extends Controller
         ]);
 
         $direction = $validated['direction'] ?? 'asc';
-        $tasks = $project->tasks();
+        $tasks = $targetProject->tasks();
 
         if (($validated['sort'] ?? null) === 'priority') {
             if ($direction === 'desc') {
@@ -46,11 +46,11 @@ class TaskController extends Controller
         ]);
     }
 
-    public function store(Request $request, Project $project): JsonResponse
+    public function store(Request $request, Project|int|string $project): JsonResponse
     {
-        $this->authorizeProjectAccess($project);
+        $targetProject = $this->resolveVisibleProject($project);
 
-        $task = $project->tasks()->create($this->validateTask($request, true));
+        $task = $targetProject->tasks()->create($this->validateTask($request, true));
 
         return response()->json([
             'success' => true,
@@ -58,23 +58,23 @@ class TaskController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Task $task): JsonResponse
+    public function update(Request $request, Task|int|string $task): JsonResponse
     {
-        $this->authorizeProjectAccess($task->project);
+        $targetTask = $this->resolveVisibleTask($task);
 
-        $task->update($this->validateTask($request, false));
+        $targetTask->update($this->validateTask($request, false));
 
         return response()->json([
             'success' => true,
-            'data' => $task->fresh(),
+            'data' => $targetTask->fresh(),
         ]);
     }
 
-    public function destroy(Task $task): JsonResponse
+    public function destroy(Task|int|string $task): JsonResponse
     {
-        $this->authorizeProjectAccess($task->project);
+        $targetTask = $this->resolveVisibleTask($task);
 
-        $task->delete();
+        $targetTask->delete();
 
         return response()->json([
             'success' => true,
@@ -82,19 +82,19 @@ class TaskController extends Controller
         ]);
     }
 
-    public function updateStatus(Request $request, Task $task): JsonResponse
+    public function updateStatus(Request $request, Task|int|string $task): JsonResponse
     {
-        $this->authorizeProjectAccess($task->project);
+        $targetTask = $this->resolveVisibleTask($task);
 
         $validated = $request->validate([
             'status' => ['required', 'in:todo,in_progress,done'],
         ]);
 
-        $task->update(['status' => $validated['status']]);
+        $targetTask->update(['status' => $validated['status']]);
 
         return response()->json([
             'success' => true,
-            'data' => $task->fresh(),
+            'data' => $targetTask->fresh(),
         ]);
     }
 
@@ -110,8 +110,40 @@ class TaskController extends Controller
         ]);
     }
 
-    private function authorizeProjectAccess(Project $project): void
+    private function resolveVisibleProject(Project|int|string $project): Project
     {
-        abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+        $id = $project instanceof Project ? $project->id : (int) $project;
+        $user = Auth::user();
+
+        /** @var Project|null $resolved */
+        $resolved = Project::query()
+            ->visibleTo($user)
+            ->where('id', $id)
+            ->first();
+
+        if (! $resolved) {
+            abort(Project::whereKey($id)->exists() ? 403 : 404, 'Anda tidak memiliki akses ke proyek ini.');
+        }
+
+        return $resolved;
+    }
+
+    private function resolveVisibleTask(Task|int|string $task): Task
+    {
+        $id = $task instanceof Task ? $task->id : (int) $task;
+        $user = Auth::user();
+
+        // FR-06 & FR-24: Query authorization langsung di klausul tasks
+        /** @var Task|null $resolved */
+        $resolved = Task::query()
+            ->visibleTo($user)
+            ->where('id', $id)
+            ->first();
+
+        if (! $resolved) {
+            abort(Task::whereKey($id)->exists() ? 403 : 404, 'Anda tidak memiliki akses ke tugas ini.');
+        }
+
+        return $resolved;
     }
 }

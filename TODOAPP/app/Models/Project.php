@@ -71,6 +71,31 @@ class Project extends Model
      * @param  Builder<Project>  $query
      * @return Builder<Project>
      */
+    public function scopeOwnedBy(Builder $query, User|int $user): Builder
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+
+        return $query->where('owner_id', $userId);
+    }
+
+    /**
+     * @param  Builder<Project>  $query
+     * @return Builder<Project>
+     */
+    public function scopeVisibleTo(Builder $query, User|int $user): Builder
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+
+        return $query->where(function (Builder $q) use ($userId): void {
+            $q->where('owner_id', $userId)
+                ->orWhereHas('members', fn (Builder $mq) => $mq->where('users.id', $userId));
+        });
+    }
+
+    /**
+     * @param  Builder<Project>  $query
+     * @return Builder<Project>
+     */
     public function scopeWithDashboardStats(Builder $query): Builder
     {
         return $query->withCount([

@@ -6,6 +6,7 @@ use App\Models\Task;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 
@@ -125,14 +126,19 @@ Route::middleware('auth')->group(function () {
         // 3. Detail Proyek & Board Tugas
         Route::get('/projects/{id}', function (int $id) {
             $user = Auth::user();
-            $project = Project::with('owner:id,name,email,role')->findOrFail($id);
+            /** @var Project|null $project */
+            $project = Project::query()
+                ->visibleTo($user)
+                ->with('owner:id,name,email,role')
+                ->where('id', $id)
+                ->first();
+
+            if (! $project) {
+                abort(Project::whereKey($id)->exists() ? 403 : 404, 'Anda tidak memiliki akses ke proyek ini.');
+            }
 
             $isOwner = $project->isOwnedBy($user);
             $isMember = $project->hasMember($user);
-
-            if (! $isOwner && ! $isMember) {
-                abort(403, 'Anda tidak memiliki akses ke proyek ini.');
-            }
 
             $tasks = $project->tasks()->get();
 
@@ -168,11 +174,43 @@ Route::middleware('auth')->group(function () {
             ]);
         })->name('projects.show');
 
+        // Hapus Proyek (FR-02, FR-03, FR-04)
+        Route::delete('/projects/{id}', function (int $id) {
+            $user = Auth::user();
+            /** @var Project|null $project */
+            $project = Project::query()
+                ->where('id', $id)
+                ->where('owner_id', $user->id)
+                ->first();
+
+            if (! $project) {
+                abort(Project::whereKey($id)->exists() ? 403 : 404, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
+            }
+
+            DB::transaction(function () use ($project, $user): void {
+                $project->tasks()->delete();
+                $project->members()->detach();
+                Project::query()
+                    ->where('id', $project->id)
+                    ->where('owner_id', $user->id)
+                    ->delete();
+            });
+
+            return redirect()->route('dashboard')->with('success', 'Proyek berhasil dihapus!');
+        })->name('projects.destroy');
+
         // 4. Tambah Tugas Baru dalam Proyek
         Route::post('/projects/{id}/tasks', function (Request $request, int $id) {
-            $project = Project::findOrFail($id);
+            $user = Auth::user();
+            /** @var Project|null $project */
+            $project = Project::query()
+                ->visibleTo($user)
+                ->where('id', $id)
+                ->first();
 
-            abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+            if (! $project) {
+                abort(Project::whereKey($id)->exists() ? 403 : 404, 'Anda tidak memiliki akses ke proyek ini.');
+            }
 
             $validated = $request->validate([
                 'title' => ['required', 'string', 'max:255'],
@@ -182,7 +220,7 @@ Route::middleware('auth')->group(function () {
                 'deadline' => ['nullable', 'date'],
             ]);
 
-            $task = $project->tasks()->create([
+            $project->tasks()->create([
                 'title' => $validated['title'],
                 'description' => $validated['description'] ?? null,
                 'priority' => $validated['priority'],
@@ -195,8 +233,16 @@ Route::middleware('auth')->group(function () {
 
         // 5. Update Status / Edit / Hapus Tugas
         Route::patch('/tasks/{id}', function (Request $request, int $id) {
-            $task = Task::with('project')->findOrFail($id);
-            abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+            $user = Auth::user();
+            /** @var Task|null $task */
+            $task = Task::query()
+                ->visibleTo($user)
+                ->where('id', $id)
+                ->first();
+
+            if (! $task) {
+                abort(Task::whereKey($id)->exists() ? 403 : 404, 'Anda tidak memiliki akses ke proyek ini.');
+            }
 
             $validated = $request->validate([
                 'status' => ['required', 'in:todo,in_progress,done'],
@@ -208,8 +254,16 @@ Route::middleware('auth')->group(function () {
         })->name('tasks.updateStatus');
 
         Route::put('/tasks/{id}', function (Request $request, int $id) {
-            $task = Task::with('project')->findOrFail($id);
-            abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+            $user = Auth::user();
+            /** @var Task|null $task */
+            $task = Task::query()
+                ->visibleTo($user)
+                ->where('id', $id)
+                ->first();
+
+            if (! $task) {
+                abort(Task::whereKey($id)->exists() ? 403 : 404, 'Anda tidak memiliki akses ke proyek ini.');
+            }
 
             $validated = $request->validate([
                 'title' => ['required', 'string', 'max:255'],
@@ -231,8 +285,16 @@ Route::middleware('auth')->group(function () {
         })->name('tasks.update');
 
         Route::delete('/tasks/{id}', function (int $id) {
-            $task = Task::with('project')->findOrFail($id);
-            abort_unless($task->project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+            $user = Auth::user();
+            /** @var Task|null $task */
+            $task = Task::query()
+                ->visibleTo($user)
+                ->where('id', $id)
+                ->first();
+
+            if (! $task) {
+                abort(Task::whereKey($id)->exists() ? 403 : 404, 'Anda tidak memiliki akses ke proyek ini.');
+            }
             $task->delete();
 
             return back()->with('success', 'Tugas berhasil dihapus!');
@@ -240,10 +302,15 @@ Route::middleware('auth')->group(function () {
 
         // 6. Kelola Anggota Proyek (Invite & Remove Member)
         Route::post('/projects/{id}/members', function (Request $request, int $id) {
-            $project = Project::findOrFail($id);
+            $user = Auth::user();
+            /** @var Project|null $project */
+            $project = Project::query()
+                ->where('id', $id)
+                ->where('owner_id', $user->id)
+                ->first();
 
-            if (! $project->isOwnedBy(Auth::user())) {
-                abort(403, 'Hanya pemilik proyek yang dapat menambah anggota.');
+            if (! $project) {
+                abort(Project::whereKey($id)->exists() ? 403 : 404, 'Hanya pemilik proyek yang dapat menambah anggota.');
             }
 
             $validated = $request->validate([
@@ -272,10 +339,15 @@ Route::middleware('auth')->group(function () {
         })->name('projects.members.store');
 
         Route::delete('/projects/{id}/members/{userId}', function (int $id, int $userId) {
-            $project = Project::findOrFail($id);
+            $user = Auth::user();
+            /** @var Project|null $project */
+            $project = Project::query()
+                ->where('id', $id)
+                ->where('owner_id', $user->id)
+                ->first();
 
-            if (! $project->isOwnedBy(Auth::user())) {
-                abort(403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
+            if (! $project) {
+                abort(Project::whereKey($id)->exists() ? 403 : 404, 'Hanya pemilik proyek yang dapat menghapus anggota.');
             }
 
             $member = User::findOrFail($userId);
