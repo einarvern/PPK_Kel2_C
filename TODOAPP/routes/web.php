@@ -4,6 +4,7 @@ use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\ProjectDeletionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -121,6 +122,24 @@ Route::middleware('auth')->group(function () {
 
             return back()->with('success', 'Proyek baru berhasil dibuat!');
         })->name('projects.store');
+
+        Route::delete('/projects/{id}', function (int $id, ProjectDeletionService $projectDeletion) {
+            $project = Project::findOrFail($id);
+
+            abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
+
+            try {
+                $projectDeletion->delete($project);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return back()->withErrors([
+                    'error' => 'Proyek tidak dapat dihapus. Silakan coba lagi.',
+                ]);
+            }
+
+            return redirect()->route('dashboard')->with('success', 'Proyek berhasil dihapus.');
+        })->name('projects.destroy');
 
         // 3. Detail Proyek & Board Tugas
         Route::get('/projects/{id}', function (int $id) {

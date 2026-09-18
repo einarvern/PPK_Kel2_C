@@ -22,6 +22,7 @@ import {
     CheckCircleIcon,
     FolderIcon,
     PlusIcon,
+    TrashIcon,
     UsersIcon,
 } from '../../components/ui/icons';
 
@@ -65,6 +66,9 @@ export default function ProjectShow({
     const [deleteTargetTask, setDeleteTargetTask] = useState<Task | null>(null);
     const [deleteTargetMember, setDeleteTargetMember] =
         useState<ProjectMember | null>(null);
+    const [isProjectDeleteDialogOpen, setIsProjectDeleteDialogOpen] =
+        useState(false);
+    const [isProjectDeleting, setIsProjectDeleting] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
 
     const isOwner = project.is_owner === true;
@@ -202,6 +206,19 @@ export default function ProjectShow({
         });
     };
 
+    const handleDeleteProject = () => {
+        setActionError(null);
+        setIsProjectDeleting(true);
+
+        router.delete(`/projects/${project.id}`, {
+            onError: (errors) =>
+                setActionError(
+                    firstError(errors, 'Proyek tidak dapat dihapus.'),
+                ),
+            onFinish: () => setIsProjectDeleting(false),
+        });
+    };
+
     const handleAddMember = (email: string) => {
         setActionError(null);
         router.post(
@@ -308,6 +325,7 @@ export default function ProjectShow({
                     <div className="flex shrink-0 flex-wrap items-center gap-2.5">
                         {isOwner && (
                             <Button
+                                type="button"
                                 variant="outline"
                                 onClick={() => setIsMemberModalOpen(true)}
                                 className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
@@ -318,7 +336,24 @@ export default function ProjectShow({
                                 </span>
                             </Button>
                         )}
-                        <Button variant="primary" onClick={() => openNewTask()}>
+                        {isOwner && (
+                            <Button
+                                type="button"
+                                variant="danger"
+                                onClick={() => {
+                                    setActionError(null);
+                                    setIsProjectDeleteDialogOpen(true);
+                                }}
+                            >
+                                <TrashIcon className="h-4 w-4" />
+                                <span>Hapus Proyek</span>
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            variant="primary"
+                            onClick={() => openNewTask()}
+                        >
                             <PlusIcon className="h-4 w-4" />
                             <span>Tambah Tugas</span>
                         </Button>
@@ -458,6 +493,18 @@ export default function ProjectShow({
                 confirmText="Keluarkan"
                 cancelText="Batal"
                 variant="danger"
+            />
+
+            <ConfirmDialog
+                isOpen={isProjectDeleteDialogOpen}
+                onClose={() => setIsProjectDeleteDialogOpen(false)}
+                onConfirm={handleDeleteProject}
+                title="Hapus Proyek"
+                message={`Apakah Anda yakin ingin menghapus proyek "${project.name}" beserta seluruh tugas dan anggotanya?`}
+                confirmText="Hapus Proyek"
+                cancelText="Batal"
+                variant="danger"
+                isLoading={isProjectDeleting}
             />
         </AppLayout>
     );
