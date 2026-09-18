@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\User;
+use App\Services\ProjectDeletionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Throwable;
 
 class ProjectController extends Controller
 {
@@ -71,11 +73,20 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function destroy(Project $project): JsonResponse
+    public function destroy(Project $project, ProjectDeletionService $projectDeletion): JsonResponse
     {
         abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
 
-        $project->delete();
+        try {
+            $projectDeletion->delete($project);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Proyek tidak dapat dihapus. Silakan coba lagi.',
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,
