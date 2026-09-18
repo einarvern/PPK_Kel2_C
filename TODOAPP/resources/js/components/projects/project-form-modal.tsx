@@ -11,6 +11,7 @@ interface ProjectFormModalProps {
     onSubmit: (data: { name: string; description: string }) => void;
     project?: Project | null;
     isLoading?: boolean;
+    serverErrors?: Record<string, string>;
 }
 
 export function ProjectFormModal({
@@ -19,6 +20,7 @@ export function ProjectFormModal({
     onSubmit,
     project,
     isLoading = false,
+    serverErrors = {},
 }: ProjectFormModalProps) {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -37,12 +39,20 @@ export function ProjectFormModal({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name.trim()) {
-            setErrors({ name: 'Nama proyek wajib diisi' });
+        const trimmedName = name.trim();
+        if (!trimmedName) {
+            setErrors({ name: 'Nama proyek wajib diisi.' });
             return;
         }
-        onSubmit({ name: name.trim(), description: description.trim() });
+        if (trimmedName.length > 255) {
+            setErrors({ name: 'Nama proyek maksimal 255 karakter.' });
+            return;
+        }
+        onSubmit({ name: trimmedName, description: description.trim() });
     };
+
+    const nameError = errors.name || serverErrors.name;
+    const descriptionError = serverErrors.description;
 
     return (
         <Modal
@@ -52,28 +62,31 @@ export function ProjectFormModal({
             description={
                 project
                     ? 'Perbarui nama dan deskripsi ruang kerja proyek ini.'
-                    : undefined
+                    : 'Buat ruang kerja baru untuk mengelola tugas pribadi atau kolaborasi tim. Anda akan otomatis menjadi pemilik proyek ini.'
             }
         >
             <form onSubmit={handleSubmit} className="space-y-4">
                 <Input
                     label="Nama Proyek*"
-                    placeholder="Jarajir"
+                    placeholder="Contoh: Pengembangan Aplikasi Web JARA"
                     value={name}
+                    maxLength={255}
                     onChange={(e) => {
                         setName(e.target.value);
-                        if (errors.name) setErrors({});
+                        if (errors.name || serverErrors.name) setErrors({});
                     }}
-                    error={errors.name}
+                    error={nameError}
+                    helperText={!nameError ? 'Maksimal 255 karakter' : undefined}
                     autoFocus
                 />
 
                 <Textarea
                     label="Deskripsi Proyek"
-                    placeholder="Apalah itulah"
+                    placeholder="Jelaskan tujuan dan ruang lingkup proyek ini (opsional)..."
                     rows={3}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
+                    error={descriptionError}
                 />
 
                 <div className="flex justify-end gap-2.5 pt-4">

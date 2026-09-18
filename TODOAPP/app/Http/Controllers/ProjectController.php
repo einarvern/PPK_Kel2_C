@@ -42,10 +42,12 @@ class ProjectController extends Controller
             'description' => ['nullable', 'string'],
         ]);
 
-        $project = Project::create([
+        /** @var User $user */
+        $user = $request->user();
+
+        $project = $user->ownedProjects()->create([
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
-            'owner_id' => Auth::id(),
         ]);
 
         return response()->json([
