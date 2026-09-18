@@ -20,6 +20,7 @@ export default function Dashboard({ projects }: DashboardProps) {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
 
     const ownedProjects = projects.filter((project) => project.is_owner);
     const memberProjects = projects.filter((project) => !project.is_owner);
@@ -35,12 +36,18 @@ export default function Dashboard({ projects }: DashboardProps) {
         description: string;
     }) => {
         setError(null);
+        setCreateErrors({});
         setIsSubmitting(true);
 
         router.post('/projects', data, {
-            onSuccess: () => setIsCreateModalOpen(false),
-            onError: (errors) =>
-                setError(firstError(errors, 'Project tidak dapat dibuat.')),
+            onSuccess: () => {
+                setIsCreateModalOpen(false);
+                setCreateErrors({});
+            },
+            onError: (errors) => {
+                setCreateErrors(errors);
+                setError(firstError(errors, 'Project tidak dapat dibuat.'));
+            },
             onFinish: () => setIsSubmitting(false),
         });
     };
@@ -139,9 +146,13 @@ export default function Dashboard({ projects }: DashboardProps) {
 
             <ProjectFormModal
                 isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
+                onClose={() => {
+                    setIsCreateModalOpen(false);
+                    setCreateErrors({});
+                }}
                 onSubmit={handleCreateProject}
                 isLoading={isSubmitting}
+                serverErrors={createErrors}
             />
         </AppLayout>
     );

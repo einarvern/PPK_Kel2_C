@@ -113,10 +113,12 @@ Route::middleware('auth')->group(function () {
                 'description' => ['nullable', 'string'],
             ]);
 
-            Project::create([
+            /** @var User $user */
+            $user = $request->user();
+
+            $user->ownedProjects()->create([
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
-                'owner_id' => Auth::id(),
             ]);
 
             return back()->with('success', 'Proyek baru berhasil dibuat!');
