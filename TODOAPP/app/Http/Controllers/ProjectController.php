@@ -27,13 +27,13 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function show(Project $project): JsonResponse
+    public function show(Project|int|string $project): JsonResponse
     {
-        abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+        $targetProject = $this->resolveVisibleProject($project);
 
         return response()->json([
             'success' => true,
-            'data' => $project->load(['owner', 'members', 'tasks']),
+            'data' => $targetProject->load(['owner', 'members', 'tasks']),
         ]);
     }
 
@@ -58,29 +58,32 @@ class ProjectController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Project $project): JsonResponse
+    public function update(Request $request, Project|int|string $project): JsonResponse
     {
-        abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat mengubah proyek ini.');
+        $targetProject = $this->resolveOwnedProject($project, 'Hanya pemilik proyek yang dapat mengubah proyek ini.');
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
         ]);
 
-        $project->update($validated);
+        $targetProject->update($validated);
 
         return response()->json([
             'success' => true,
-            'data' => $project->fresh(),
+            'data' => $targetProject->fresh(),
         ]);
     }
 
-    public function destroy(Project $project, ProjectDeletionService $projectDeletion): JsonResponse
+    public function destroy(Project|int|string $project, ProjectDeletionService $projectDeletion): JsonResponse
     {
-        abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
+        // 1. Otorisasi & Resolve Project (dari branch feat)
+        $targetProject = $this->resolveOwnedProject($project, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
 
+        // 2. Delegasi ke Service dengan Error Handling (dari branch main)
         try {
-            $projectDeletion->delete($project);
+            // Teruskan model yang sudah divalidasi ke service
+            $projectDeletion->delete($targetProject);
         } catch (Throwable $exception) {
             report($exception);
 
@@ -96,9 +99,9 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function addMember(Request $request, Project $project): JsonResponse
+    public function addMember(Request $request, Project|int|string $project): JsonResponse
     {
-        abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat menambah anggota.');
+        $targetProject = $this->resolveOwnedProject($project, 'Hanya pemilik proyek yang dapat menambah anggota.');
 
         $validated = $request->validate([
             'email' => ['required', 'email', 'exists:users,email'],
@@ -113,35 +116,35 @@ class ProjectController extends Controller
             ], 422);
         }
 
-        if ($project->isOwnedBy($user) || $project->hasMember($user)) {
+        if ($targetProject->isOwnedBy($user) || $targetProject->hasMember($user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pengguna sudah menjadi anggota proyek atau adalah pemilik proyek.',
             ], 422);
         }
 
-        $project->members()->attach($user->id);
+        $targetProject->members()->attach($user->id);
 
         return response()->json([
             'success' => true,
             'message' => 'Anggota berhasil ditambahkan.',
-            'data' => $project->fresh()->load('members'),
+            'data' => $targetProject->fresh()->load('members'),
         ]);
     }
 
-    public function removeMember(Project $project, User $user): JsonResponse
+    public function removeMember(Project|int|string $project, User $user): JsonResponse
     {
-        abort_unless($project->isOwnedBy(Auth::user()), 403, 'Hanya pemilik proyek yang dapat menghapus anggota.');
-        abort_unless($project->hasMember($user) || $project->isOwnedBy($user), 404, 'Pengguna tidak terdaftar di proyek ini.');
+        $targetProject = $this->resolveOwnedProject($project, 'Hanya pemilik proyek yang dapat menghapus anggota.');
+        abort_unless($targetProject->hasMember($user) || $targetProject->isOwnedBy($user), 404, 'Pengguna tidak terdaftar di proyek ini.');
 
-        if ($project->isOwnedBy($user)) {
+        if ($targetProject->isOwnedBy($user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pemilik proyek tidak dapat dihapus sebagai anggota.',
             ], 422);
         }
 
-        $project->members()->detach($user->id);
+        $targetProject->members()->detach($user->id);
 
         return response()->json([
             'success' => true,
@@ -149,15 +152,15 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function progress(Project $project): JsonResponse
+    public function progress(Project|int|string $project): JsonResponse
     {
-        abort_unless($project->isVisibleTo(Auth::user()), 403, 'Anda tidak memiliki akses ke proyek ini.');
+        $targetProject = $this->resolveVisibleProject($project);
 
-        $summary = $project->progress();
+        $summary = $targetProject->progress();
 
         return response()->json([
             'success' => true,
-            'project_id' => $project->id,
+            'project_id' => $targetProject->id,
             'progress' => $summary['progress'],
             'counts' => [
                 'total' => $summary['total'],
@@ -166,5 +169,43 @@ class ProjectController extends Controller
                 'in_progress' => $summary['in_progress'],
             ],
         ]);
+    }
+
+    private function resolveOwnedProject(Project|int|string $project, string $unauthorizedMessage = 'Hanya pemilik proyek yang dapat melakukan operasi ini.'): Project
+    {
+        $id = $project instanceof Project ? $project->id : (int) $project;
+        $user = Auth::user();
+
+        // FR-03, FR-06 & FR-24: Query authorization langsung di klausul database
+        /** @var Project|null $resolved */
+        $resolved = Project::query()
+            ->where('id', $id)
+            ->where('owner_id', $user?->id)
+            ->first();
+
+        if (! $resolved) {
+            abort(Project::whereKey($id)->exists() ? 403 : 404, $unauthorizedMessage);
+        }
+
+        return $resolved;
+    }
+
+    private function resolveVisibleProject(Project|int|string $project): Project
+    {
+        $id = $project instanceof Project ? $project->id : (int) $project;
+        $user = Auth::user();
+
+        // Query authorization: hanya memuat project yang memang boleh diakses user
+        /** @var Project|null $resolved */
+        $resolved = Project::query()
+            ->visibleTo($user)
+            ->where('id', $id)
+            ->first();
+
+        if (! $resolved) {
+            abort(Project::whereKey($id)->exists() ? 403 : 404, 'Anda tidak memiliki akses ke proyek ini.');
+        }
+
+        return $resolved;
     }
 }

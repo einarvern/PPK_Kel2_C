@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -37,5 +38,17 @@ class Task extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    /**
+     * @param  Builder<Task>  $query
+     * @return Builder<Task>
+     */
+    public function scopeVisibleTo(Builder $query, User|int $user): Builder
+    {
+        return $query->whereHas('project', function (Builder $pq) use ($user): void {
+            /** @var Builder<Project> $pq */
+            $pq->visibleTo($user);
+        });
     }
 }
