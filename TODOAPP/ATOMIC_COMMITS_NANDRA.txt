@@ -1,0 +1,59 @@
+ATOMIC COMMITS — IMPLEMENTASI NANDRA
+=====================================
+
+Jalankan setiap blok dari root proyek TODOAPP. Setiap perintah git commit
+memasukkan judul dan deskripsi berbahasa Indonesia ke dalam commit message.
+PRD_pert3_v2.md tidak termasuk ke dalam commit mana pun.
+
+
+1. Atomic commit API
+--------------------
+
+git add app/Services/ProjectDeletionService.php
+git add app/Http/Controllers/ProjectController.php
+git commit -m "feat(project-deletion): add atomic API project deletion" -m "Deskripsi:
+Mengimplementasikan penghapusan project API yang atomic dengan database transaction.
+
+Perubahan:
+- Menambahkan ProjectDeletionService sebagai satu sumber logika penghapusan project.
+- Menghapus seluruh task berdasarkan project_id.
+- Menghapus seluruh project membership berdasarkan project_id.
+- Menghapus project setelah data turunannya berhasil dihapus.
+- Membungkus seluruh proses dengan DB::transaction() agar kegagalan memicu rollback.
+- Mengubah endpoint hapus project API agar memakai service tersebut.
+- Mengembalikan respons JSON status 500 berbahasa Indonesia saat transaksi gagal."
+
+
+2. Atomic commit web dan UI
+---------------------------
+
+git add routes/web.php
+git add resources/js/pages/projects/show.tsx
+git commit -m "feat(project-deletion): add web project deletion flow" -m "Deskripsi:
+Menyediakan alur penghapusan project dari aplikasi web Inertia khusus untuk owner.
+
+Perubahan:
+- Menambahkan route hapus project web dengan pengecekan owner.
+- Menggunakan ProjectDeletionService agar alur web memakai transaction yang sama dengan API.
+- Mengarahkan user ke dashboard dan menampilkan flash message ketika penghapusan berhasil.
+- Menampilkan pesan error saat transaksi web gagal.
+- Menambahkan tombol Hapus Proyek yang hanya tampil untuk owner.
+- Menambahkan ConfirmDialog yang menjelaskan task dan anggota project juga akan terhapus.
+- Menambahkan loading state untuk mencegah request hapus ganda."
+
+
+3. Atomic commit test
+---------------------
+
+git add tests/Feature/ProjectManagementTest.php
+git add ATOMIC_COMMITS_NANDRA.txt
+git commit -m "feat(project-deletion): add transaction rollback coverage" -m "Deskripsi:
+Menambahkan pengujian untuk membuktikan penghapusan project bersifat atomic.
+
+Perubahan:
+- Menambahkan test owner menghapus project melalui API.
+- Memastikan project, task, dan project membership hilang setelah transaksi berhasil di-commit.
+- Menambahkan simulasi kegagalan saat project akan dihapus.
+- Memastikan kegagalan menghasilkan respons error status 500.
+- Memastikan project, task, dan membership tetap ada setelah rollback.
+- Menyimpan panduan atomic commit ini di root proyek."

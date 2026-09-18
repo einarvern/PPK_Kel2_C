@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\User;
+use App\Services\ProjectDeletionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class ProjectController extends Controller
 {
@@ -43,10 +44,12 @@ class ProjectController extends Controller
             'description' => ['nullable', 'string'],
         ]);
 
-        $project = Project::create([
+        /** @var User $user */
+        $user = $request->user();
+
+        $project = $user->ownedProjects()->create([
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
-            'owner_id' => Auth::id(),
         ]);
 
         return response()->json([
@@ -72,19 +75,23 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function destroy(Project|int|string $project): JsonResponse
+    public function destroy(Project|int|string $project, ProjectDeletionService $projectDeletion): JsonResponse
     {
-        $user = Auth::user();
+        // 1. Otorisasi & Resolve Project (dari branch feat)
         $targetProject = $this->resolveOwnedProject($project, 'Hanya pemilik proyek yang dapat menghapus proyek ini.');
 
-        DB::transaction(function () use ($targetProject, $user): void {
-            $targetProject->tasks()->delete();
-            $targetProject->members()->detach();
-            Project::query()
-                ->where('id', $targetProject->id)
-                ->where('owner_id', $user->id)
-                ->delete();
-        });
+        // 2. Delegasi ke Service dengan Error Handling (dari branch main)
+        try {
+            // Teruskan model yang sudah divalidasi ke service
+            $projectDeletion->delete($targetProject);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Proyek tidak dapat dihapus. Silakan coba lagi.',
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,
