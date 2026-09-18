@@ -7,6 +7,7 @@ use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Tests\TestCase;
 
 class ProjectManagementTest extends TestCase
@@ -84,6 +85,70 @@ class ProjectManagementTest extends TestCase
         ], $headers)
             ->assertCreated()
             ->assertJsonPath('data.status', 'todo');
+    }
+
+    public function test_project_owner_can_delete_a_project_with_its_tasks_and_members(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $project = Project::create([
+            'name' => 'Proyek yang akan dihapus',
+            'owner_id' => $owner->id,
+        ]);
+        $project->members()->attach($member->id);
+        $task = $project->tasks()->create([
+            'title' => 'Tugas yang akan dihapus',
+            'priority' => 'medium',
+            'status' => 'todo',
+        ]);
+
+        $this->deleteJson('/api/projects/'.$project->id, [], $this->authHeaders($owner))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Proyek berhasil dihapus.');
+
+        $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+        $this->assertDatabaseMissing('tasks', ['id' => $task->id]);
+        $this->assertDatabaseMissing('project_members', [
+            'project_id' => $project->id,
+            'user_id' => $member->id,
+        ]);
+    }
+
+    public function test_project_deletion_rolls_back_when_the_project_cannot_be_deleted(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $project = Project::create([
+            'name' => 'Proyek rollback',
+            'owner_id' => $owner->id,
+        ]);
+        $project->members()->attach($member->id);
+        $task = $project->tasks()->create([
+            'title' => 'Tugas rollback',
+            'priority' => 'high',
+            'status' => 'todo',
+        ]);
+
+        Project::deleting(static function (Project $project): void {
+            throw new RuntimeException('Simulasi kegagalan penghapusan proyek.');
+        });
+
+        try {
+            $this->deleteJson('/api/projects/'.$project->id, [], $this->authHeaders($owner))
+                ->assertStatus(500)
+                ->assertJsonPath('success', false)
+                ->assertJsonPath('message', 'Proyek tidak dapat dihapus. Silakan coba lagi.');
+        } finally {
+            Project::flushEventListeners();
+        }
+
+        $this->assertDatabaseHas('projects', ['id' => $project->id]);
+        $this->assertDatabaseHas('tasks', ['id' => $task->id]);
+        $this->assertDatabaseHas('project_members', [
+            'project_id' => $project->id,
+            'user_id' => $member->id,
+        ]);
     }
 
     public function test_project_members_share_the_same_task_workspace(): void
